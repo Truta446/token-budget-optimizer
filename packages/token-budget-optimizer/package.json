@@ -1,6 +1,6 @@
 {
   "name": "token-budget-optimizer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Send less context. Keep what matters. Deterministic, local-first selection of LLM context under a hard token budget, powered by Rust.",
   "keywords": [
     "llm",

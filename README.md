@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="token-budget-optimizer: Send less context. Keep what matters. 16 files and 3,759 tokens become 5 relevant sections and 658 tokens, under a 700-token budget." width="100%">
+  <img src="https://raw.githubusercontent.com/Truta446/token-budget-optimizer/main/assets/banner.png" alt="token-budget-optimizer: Send less context. Keep what matters. 16 files and 3,759 tokens become 5 relevant sections and 658 tokens, under a 700-token budget." width="100%">
 </p>
 
 <p align="center">
@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/types-TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/runtime%20deps-0-brightgreen" alt="zero runtime dependencies">
   <img src="https://img.shields.io/badge/node-%E2%89%A522.12-339933?logo=node.js&logoColor=white" alt="Node 22.12+">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <a href="https://github.com/Truta446/token-budget-optimizer/tree/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
 </p>
 
 <p align="center">
@@ -91,7 +91,7 @@ console.log(result.context);
 for (const chunk of result.discarded) console.log(`dropped ${chunk.id}: ${chunk.reason}`);
 ```
 
-Real output ([`examples/basic`](examples/basic/index.ts)):
+Real output ([`examples/basic`](https://github.com/Truta446/token-budget-optimizer/blob/main/examples/basic/index.ts)):
 
 ```text
 [Source: middleware.ts, lines 1-8]
@@ -114,7 +114,7 @@ dropped database.ts#0: no_query_match
 dropped database.ts#1: no_query_match
 ```
 
-More: [RAG with citations and duplicate removal](examples/rag/index.ts) · [code-assistant context from a directory](examples/code-context/index.ts)
+More: [RAG with citations and duplicate removal](https://github.com/Truta446/token-budget-optimizer/blob/main/examples/rag/index.ts) · [code-assistant context from a directory](https://github.com/Truta446/token-budget-optimizer/blob/main/examples/code-context/index.ts)
 
 ## Before and after
 
@@ -133,7 +133,7 @@ Truncation keeps whatever comes first. The optimizer keeps what matches the ques
 ## How it works
 
 <p align="center">
-  <img src="assets/how-it-works.svg" alt="Documents are chunked, deduplicated, ranked with BM25, selected greedily within the budget with a redundancy penalty, assembled verbatim with source headers, and the final string is counted exactly. Dropped chunks are returned in result.discarded with a reason." width="100%">
+  <img src="https://raw.githubusercontent.com/Truta446/token-budget-optimizer/main/assets/how-it-works.png" alt="Documents are chunked, deduplicated, ranked with BM25, selected greedily within the budget with a redundancy penalty, assembled verbatim with source headers, and the final string is counted exactly. Dropped chunks are returned in result.discarded with a reason." width="100%">
 </p>
 
 1. **Chunk.** Each document is tokenized once. Lines are packed into chunks of about `clamp(maxTokens / 4, 32, 256)` tokens; long lines are split on character boundaries. Chunks carry line numbers and UTF-16 offsets, so `content.slice(startOffset, endOffset)` returns exactly the chunk.
@@ -143,7 +143,7 @@ Truncation keeps whatever comes first. The optimizer keeps what matches the ques
 5. **Assemble.** Touching chunks of one document merge into a single section under one header. Sections are ordered by relevance or by source.
 6. **Exact count.** The final string is counted with the tokenizer. If BPE boundary effects push it over, the lowest-value chunk is removed and the string is counted again. `stats.optimizedTokens` is that exact count.
 
-The engine ([`crates/optimizer-core`](crates/optimizer-core)) is a plain Rust library with no Node.js dependency. The npm package crosses the JS ↔ Rust boundary once per call.
+The engine ([`crates/optimizer-core`](https://github.com/Truta446/token-budget-optimizer/tree/main/crates/optimizer-core)) is a plain Rust library with no Node.js dependency. The npm package crosses the JS ↔ Rust boundary once per call.
 
 ## Playground
 
@@ -155,14 +155,14 @@ pnpm install && pnpm build && pnpm playground   # http://127.0.0.1:4173/#run
 ```
 
 <p align="center">
-  <img src="assets/playground.png" alt="The playground: query, budget and documents on the left; on the right, 3,759 input tokens reduced to 658, 82.5% reduction, 5 of 30 chunks kept, 3 duplicates, and the selected context with source headers." width="100%">
+  <img src="https://raw.githubusercontent.com/Truta446/token-budget-optimizer/main/assets/playground.png" alt="The playground: query, budget and documents on the left; on the right, 3,759 input tokens reduced to 658, 82.5% reduction, 5 of 30 chunks kept, 3 duplicates, and the selected context with source headers." width="100%">
 </p>
 
 The playground binds to `127.0.0.1`, limits input size, rate-limits requests, sets a strict CSP, and neither stores nor logs what you paste.
 
 ## Performance
 
-Median / p95 in milliseconds, synthetic code-like corpora, 8,000-token budget. Intel Core Ultra 9 275HX, Linux, Node 24.15. The machine was shared during the run, so treat these as indicative. Full output in [`benchmarks/results/runtime.md`](benchmarks/results/runtime.md).
+Median / p95 in milliseconds, synthetic code-like corpora, 8,000-token budget. Intel Core Ultra 9 275HX, Linux, Node 24.15. The machine was shared during the run, so treat these as indicative. Full output in [`benchmarks/results/runtime.md`](https://github.com/Truta446/token-budget-optimizer/blob/main/benchmarks/results/runtime.md).
 
 | Corpus | Input tokens | `optimizeContextSync` | `optimizeContext` | All-JS BM25 selector¹ |
 |---|---:|---:|---:|---:|
@@ -183,7 +183,7 @@ Median / p95 in milliseconds, synthetic code-like corpora, 8,000-token budget. I
 
 ## Quality
 
-Fast is useless if the right text gets dropped. [`benchmarks/src/evaluate.ts`](benchmarks/src/evaluate.ts) runs 14 hand-labelled cases over a 16-file API codebase and 8 pages of product docs. Each case has a budget smaller than the corpus and verbatim snippets that a useful context must contain.
+Fast is useless if the right text gets dropped. [`benchmarks/src/evaluate.ts`](https://github.com/Truta446/token-budget-optimizer/blob/main/benchmarks/src/evaluate.ts) runs 14 hand-labelled cases over a 16-file API codebase and 8 pages of product docs. Each case has a budget smaller than the corpus and verbatim snippets that a useful context must contain.
 
 | Method | Snippet recall | Cases fully covered | Within budget |
 |---|---:|---:|---:|
@@ -200,9 +200,9 @@ How to read this honestly:
 - **Not clear:** the optimizer and simple lexical baselines are within noise of each other on 14 cases. The value over a hand-rolled BM25 is the guarantees (exact budget, provenance, dedup, determinism) and the speed, not dramatically higher recall.
 - The cases were written by the author and used during development. They are a regression signal, not a held-out benchmark.
 - One case is deliberately lexically unanswerable (*"users logged out unexpectedly"* vs. text about *"short-lived"* tokens). Every method misses it.
-- Snippet recall is not answer quality, and fewer tokens don't guarantee better answers or a specific cost saving. Measure with your own model; [`benchmarks/src/answer-eval.ts`](benchmarks/src/answer-eval.ts) is an opt-in harness for that.
+- Snippet recall is not answer quality, and fewer tokens don't guarantee better answers or a specific cost saving. Measure with your own model; [`benchmarks/src/answer-eval.ts`](https://github.com/Truta446/token-budget-optimizer/blob/main/benchmarks/src/answer-eval.ts) is an opt-in harness for that.
 
-Methodology: [`benchmarks/README.md`](benchmarks/README.md).
+Methodology: [`benchmarks/README.md`](https://github.com/Truta446/token-budget-optimizer/blob/main/benchmarks/README.md).
 
 ## API
 
@@ -284,7 +284,7 @@ Implemented with [`tiktoken-rs`](https://crates.io/crates/tiktoken-rs) and verif
 - **No crashes.** Native panics are caught at the boundary and surface as `TokenBudgetError` with code `TBO_INTERNAL`.
 - Content is copied verbatim, so prompt injection *inside* your documents is not detected or removed. Bound input size yourself in services exposed to untrusted users.
 
-Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
+Report vulnerabilities as described in [SECURITY.md](https://github.com/Truta446/token-budget-optimizer/blob/main/SECURITY.md).
 
 ## Known limitations
 
@@ -299,10 +299,10 @@ Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
 
 | Platform | Status |
 |---|---|
-| Linux x64 and arm64 (glibc), macOS arm64, Windows x64 — Node 22 and 24 | ✅ Built and fully tested in [CI](.github/workflows/ci.yml) |
+| Linux x64 and arm64 (glibc), macOS arm64, Windows x64 — Node 22 and 24 | ✅ Built and fully tested in [CI](https://github.com/Truta446/token-budget-optimizer/blob/main/.github/workflows/ci.yml) |
 | Linux x64 — Node 26 | ✅ Tested locally |
 | Linux musl (x64, arm64), macOS x64, Windows arm64 | 📦 Prebuilt binaries shipped, not covered by tests |
-| Browsers, Deno, Bun, edge runtimes | ❌ Not in 0.1 (a WASM build is on the [roadmap](ROADMAP.md)) |
+| Browsers, Deno, Bun, edge runtimes | ❌ Not in 0.1 (a WASM build is on the [roadmap](https://github.com/Truta446/token-budget-optimizer/blob/main/ROADMAP.md)) |
 
 ## How it compares
 
@@ -339,12 +339,12 @@ fixtures/                         evaluation corpora and labelled cases
 examples/                         basic, rag, code-context
 ```
 
-Building from source needs Rust 1.85+. See [CONTRIBUTING.md](CONTRIBUTING.md). Quality changes should come with `pnpm eval` before/after, and performance claims with `pnpm bench` output.
+Building from source needs Rust 1.85+. See [CONTRIBUTING.md](https://github.com/Truta446/token-budget-optimizer/blob/main/CONTRIBUTING.md). Quality changes should come with `pnpm eval` before/after, and performance claims with `pnpm bench` output.
 
 ## Roadmap
 
-More tokenizers, pinned documents, syntax-aware chunking for code, a larger external evaluation set, a WASM build, and adapters for LangChain.js and the Vercel AI SDK. See [ROADMAP.md](ROADMAP.md).
+More tokenizers, pinned documents, syntax-aware chunking for code, a larger external evaluation set, a WASM build, and adapters for LangChain.js and the Vercel AI SDK. See [ROADMAP.md](https://github.com/Truta446/token-budget-optimizer/blob/main/ROADMAP.md).
 
 ## License
 
-[MIT](LICENSE) © Juan Versolato
+[MIT](https://github.com/Truta446/token-budget-optimizer/tree/main/LICENSE) © Juan Versolato

@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-15
+
+### Fixed
+- README images and links on npmjs.com: use absolute GitHub URLs and PNG images
+  (relative paths were resolved against `packages/token-budget-optimizer`).
+
 ## [0.1.0] - 2026-10-15
 
 First public version.
