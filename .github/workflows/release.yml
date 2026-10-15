@@ -117,7 +117,7 @@ jobs:
           ls adapters-dist
       - name: Adapters (dry run)
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run
-        run: for t in adapters-dist/*.tgz; do npm publish "$t" --dry-run --access public; done
+        run: for t in ./adapters-dist/*.tgz; do npm publish "$t" --dry-run --access public; done
       - name: Publish
         if: github.event_name == 'push' || !inputs.dry_run
         working-directory: packages/token-budget-optimizer
@@ -128,4 +128,4 @@ jobs:
         if: github.event_name == 'push' || !inputs.dry_run
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: for t in adapters-dist/*.tgz; do npm publish "$t" --provenance --access public; done
+        run: for t in ./adapters-dist/*.tgz; do npm publish "$t" --provenance --access public; done
