@@ -312,12 +312,15 @@ pub(crate) fn query_index(query: &[String]) -> FxHashMap<&str, usize> {
     query.iter().enumerate().map(|(i, t)| (t.as_str(), i)).collect()
 }
 
-pub(crate) fn chunk_terms(
-    text: &str,
-    stemming: bool,
-    query: &FxHashMap<&str, usize>,
-    interner: &mut Interner,
-) -> ChunkTerms {
+/// Terms of one chunk before interning. Analysis is the expensive part and can
+/// run in parallel; interning is sequential so term ids stay deterministic.
+pub(crate) struct PendingTerms {
+    length: usize,
+    query_tf: Vec<u32>,
+    terms: Vec<String>,
+}
+
+pub(crate) fn analyze_chunk(text: &str, stemming: bool, query: &FxHashMap<&str, usize>) -> PendingTerms {
     let terms = analyze(text, stemming);
     let mut query_tf = vec![0u32; query.len()];
     for term in &terms {
@@ -325,15 +328,34 @@ pub(crate) fn chunk_terms(
             query_tf[q] += 1;
         }
     }
-    let length = terms.len();
-    let mut term_set: Vec<u32> = terms.into_iter().map(|t| interner.id(t)).collect();
-    term_set.sort_unstable();
-    term_set.dedup();
-    ChunkTerms {
-        length,
+    PendingTerms {
+        length: terms.len(),
         query_tf,
-        term_set,
+        terms,
     }
+}
+
+impl PendingTerms {
+    pub fn intern(self, interner: &mut Interner) -> ChunkTerms {
+        let mut term_set: Vec<u32> = self.terms.into_iter().map(|t| interner.id(t)).collect();
+        term_set.sort_unstable();
+        term_set.dedup();
+        ChunkTerms {
+            length: self.length,
+            query_tf: self.query_tf,
+            term_set,
+        }
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn chunk_terms(
+    text: &str,
+    stemming: bool,
+    query: &FxHashMap<&str, usize>,
+    interner: &mut Interner,
+) -> ChunkTerms {
+    analyze_chunk(text, stemming, query).intern(interner)
 }
 
 /// Lucene-style non-negative BM25 IDF.

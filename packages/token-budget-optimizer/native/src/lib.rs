@@ -30,10 +30,18 @@ fn guarded<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
 }
 
 #[napi(object)]
+pub struct HeaderFieldInput {
+    pub key: String,
+    pub value: String,
+}
+
+#[napi(object)]
 pub struct DocumentInput {
     pub id: String,
     pub content: String,
     pub weight: Option<f64>,
+    /// Values for `{meta.<key>}` header placeholders.
+    pub header_fields: Option<Vec<HeaderFieldInput>>,
 }
 
 #[napi(object)]
@@ -97,10 +105,7 @@ fn to_count(field: &str, value: f64) -> Result<usize> {
 
 fn to_request(input: OptimizeInput) -> Result<core::OptimizeRequest> {
     let max_tokens = to_count("maxTokens", input.max_tokens)?;
-    let tokenizer = match input.tokenizer.as_deref() {
-        None => core::TokenizerKind::default(),
-        Some(name) => name.parse().map_err(from_core)?,
-    };
+    let tokenizer = parse_tokenizer(input.tokenizer.as_deref())?;
     let chunking = match input.chunking {
         None => core::ChunkingOptions::for_budget(max_tokens),
         Some(c) => {
@@ -183,6 +188,12 @@ fn to_request(input: OptimizeInput) -> Result<core::OptimizeRequest> {
                 id: d.id,
                 content: d.content,
                 weight: d.weight.unwrap_or(1.0),
+                header_fields: d
+                    .header_fields
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|f| (f.key, f.value))
+                    .collect(),
             })
             .collect(),
         chunking,
@@ -405,21 +416,25 @@ pub fn optimize_sync(input: OptimizeInput) -> Result<OptimizeOutput> {
     run(&request)
 }
 
-/// Counts tokens with the given tokenizer (default `o200k_base`). Special-token
-/// markers such as `<|endoftext|>` are counted as plain text.
+fn parse_tokenizer(name: Option<&str>) -> Result<core::TokenizerId> {
+    match name {
+        None => Ok(core::TokenizerId::default()),
+        Some(name) => name.parse().map_err(from_core),
+    }
+}
+
+/// Counts tokens with the given tokenizer (default `o200k_base`). For built-in
+/// tokenizers, special-token markers such as `<|endoftext|>` count as plain text.
 #[napi]
 pub fn count_tokens(text: String, tokenizer: Option<String>) -> Result<u32> {
     guarded(|| {
-        let kind = match tokenizer.as_deref() {
-            None => core::TokenizerKind::default(),
-            Some(name) => name.parse().map_err(from_core)?,
-        };
-        Ok(n(core::count_tokens(&text, kind)))
+        let tok = core::Tokenizer::resolve(&parse_tokenizer(tokenizer.as_deref())?).map_err(from_core)?;
+        Ok(n(tok.count(&text)))
     })
 }
 
 pub struct WarmUpTask {
-    kinds: Vec<core::TokenizerKind>,
+    ids: Vec<core::TokenizerId>,
 }
 
 impl Task for WarmUpTask {
@@ -428,7 +443,11 @@ impl Task for WarmUpTask {
 
     fn compute(&mut self) -> Result<()> {
         guarded(|| {
-            self.kinds.iter().for_each(|&k| core::warm_up(k));
+            for id in &self.ids {
+                core::Tokenizer::resolve(id)
+                    .map_err(from_core)?
+                    .token_starts("warm up");
+            }
             Ok(())
         })
     }
@@ -441,21 +460,61 @@ impl Task for WarmUpTask {
 /// Initialises tokenizer tables on the libuv thread pool (default: `o200k_base`).
 #[napi(ts_return_type = "Promise<void>")]
 pub fn warm_up(tokenizers: Option<Vec<String>>) -> Result<AsyncTask<WarmUpTask>> {
-    let kinds = match tokenizers {
-        None => vec![core::TokenizerKind::default()],
+    let ids = match tokenizers {
+        None => vec![core::TokenizerId::default()],
         Some(names) => names
             .iter()
-            .map(|n| n.parse().map_err(from_core))
+            .map(|n| parse_tokenizer(Some(n)))
             .collect::<Result<Vec<_>>>()?,
     };
-    Ok(AsyncTask::new(WarmUpTask { kinds }))
+    Ok(AsyncTask::new(WarmUpTask { ids }))
 }
 
-/// Names of the tokenizers bundled with this build.
+/// Names of the built-in tokenizers followed by the registered ones.
 #[napi]
 pub fn supported_tokenizers() -> Vec<String> {
     core::TokenizerKind::ALL
         .iter()
         .map(|t| t.name().to_owned())
+        .chain(core::registered_names())
         .collect()
+}
+
+#[cfg(feature = "huggingface")]
+pub struct RegisterTask {
+    name: String,
+    json: Vec<u8>,
+}
+
+#[cfg(feature = "huggingface")]
+impl Task for RegisterTask {
+    type Output = ();
+    type JsValue = ();
+
+    fn compute(&mut self) -> Result<()> {
+        guarded(|| core::register_huggingface_tokenizer(&self.name, &self.json).map_err(from_core))
+    }
+
+    fn resolve(&mut self, _env: Env, _output: ()) -> Result<()> {
+        Ok(())
+    }
+}
+
+/// Parses a Hugging Face `tokenizer.json` (string or bytes) on the thread pool
+/// and registers it under `name`. Replaces an existing registration.
+#[cfg(feature = "huggingface")]
+#[napi(ts_return_type = "Promise<void>")]
+pub fn register_tokenizer(name: String, json: Either<String, Uint8Array>) -> AsyncTask<RegisterTask> {
+    let json = match json {
+        Either::A(text) => text.into_bytes(),
+        Either::B(bytes) => bytes.to_vec(),
+    };
+    AsyncTask::new(RegisterTask { name, json })
+}
+
+/// Removes a registered tokenizer. Returns whether it existed.
+#[cfg(feature = "huggingface")]
+#[napi]
+pub fn unregister_tokenizer(name: String) -> bool {
+    core::unregister_tokenizer(&name)
 }

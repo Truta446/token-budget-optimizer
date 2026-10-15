@@ -18,7 +18,7 @@ use std::collections::BinaryHeap;
 use crate::context::render_header;
 use crate::ranking::jaccard;
 use crate::tokenizer::Tokenizer;
-use crate::types::{ChunkLocation, FormatOptions};
+use crate::types::{ChunkLocation, Document, FormatOptions};
 
 #[derive(Clone, Copy)]
 pub(crate) struct Candidate<'a> {
@@ -46,6 +46,7 @@ pub(crate) struct Decision {
 pub(crate) struct BudgetModel<'a> {
     tok: &'a Tokenizer,
     format: &'a FormatOptions,
+    documents: &'a [Document],
     max_tokens: usize,
     used: usize,
     separator_tokens: usize,
@@ -58,15 +59,21 @@ pub(crate) struct BudgetModel<'a> {
 const ADJACENT_HEADER_SLACK: usize = 2;
 
 impl<'a> BudgetModel<'a> {
-    pub fn new(tok: &'a Tokenizer, format: &'a FormatOptions, max_tokens: usize, documents: usize) -> Self {
+    pub fn new(
+        tok: &'a Tokenizer,
+        format: &'a FormatOptions,
+        max_tokens: usize,
+        documents: &'a [Document],
+    ) -> Self {
         Self {
             tok,
             format,
+            documents,
             max_tokens,
             used: 0,
             separator_tokens: tok.count(&format.separator),
             any_selected: false,
-            ranges: vec![Vec::new(); documents],
+            ranges: vec![Vec::new(); documents.len()],
         }
     }
 
@@ -89,9 +96,11 @@ impl<'a> BudgetModel<'a> {
         let header = if self.format.header_template.is_empty() {
             0
         } else {
+            let doc = &self.documents[loc.document_index];
             let mut h = render_header(
                 &self.format.header_template,
-                &loc.document_id,
+                &doc.id,
+                &doc.header_fields,
                 loc.start_line,
                 loc.end_line,
             );
@@ -368,6 +377,10 @@ mod tests {
             .collect()
     }
 
+    fn docs(n: usize) -> Vec<Document> {
+        (0..n).map(|i| Document::new(format!("d{i}"), "")).collect()
+    }
+
     fn no_header() -> FormatOptions {
         FormatOptions {
             header_template: String::new(),
@@ -398,7 +411,8 @@ mod tests {
                 text: &texts_[i],
             })
             .collect();
-        let mut budget = BudgetModel::new(&tok, &format, 45, 2);
+        let documents = docs(2);
+        let mut budget = BudgetModel::new(&tok, &format, 45, &documents);
         let d = select(
             Pools {
                 ranked: &ranked,
@@ -432,7 +446,8 @@ mod tests {
                 text: &texts_[i],
             })
             .collect();
-        let mut budget = BudgetModel::new(&tok, &format, 1000, 2);
+        let documents = docs(2);
+        let mut budget = BudgetModel::new(&tok, &format, 1000, &documents);
         let order: Vec<usize> = select(
             Pools {
                 ranked: &ranked,
@@ -468,7 +483,8 @@ mod tests {
                 text: &texts_[i],
             })
             .collect();
-        let mut budget = BudgetModel::new(&tok, &format, 20, 3);
+        let documents = docs(3);
+        let mut budget = BudgetModel::new(&tok, &format, 20, &documents);
         let d = select(
             Pools {
                 ranked: &ranked,
@@ -504,7 +520,8 @@ mod tests {
             location: &locs[0],
             text: &texts_[0],
         }];
-        let mut budget = BudgetModel::new(&tok, &format, 0, 1);
+        let documents = docs(1);
+        let mut budget = BudgetModel::new(&tok, &format, 0, &documents);
         assert!(
             select(
                 Pools {

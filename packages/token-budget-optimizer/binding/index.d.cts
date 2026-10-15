@@ -27,8 +27,8 @@ export interface ChunkLocation {
 }
 
 /**
- * Counts tokens with the given tokenizer (default `o200k_base`). Special-token
- * markers such as `<|endoftext|>` are counted as plain text.
+ * Counts tokens with the given tokenizer (default `o200k_base`). For built-in
+ * tokenizers, special-token markers such as `<|endoftext|>` count as plain text.
  */
 export declare function countTokens(text: string, tokenizer?: string | undefined | null): number
 
@@ -48,11 +48,18 @@ export interface DocumentInput {
   id: string
   content: string
   weight?: number
+  /** Values for `{meta.<key>}` header placeholders. */
+  headerFields?: Array<HeaderFieldInput>
 }
 
 export interface FormatInput {
   headerTemplate?: string
   separator?: string
+}
+
+export interface HeaderFieldInput {
+  key: string
+  value: string
 }
 
 /**
@@ -93,6 +100,12 @@ export interface RankingInput {
   sourceWeight?: number
   stemming?: boolean
 }
+
+/**
+ * Parses a Hugging Face `tokenizer.json` (string or bytes) on the thread pool
+ * and registers it under `name`. Replaces an existing registration.
+ */
+export declare function registerTokenizer(name: string, json: string | Uint8Array): Promise<void>
 
 export interface ScoreBreakdown {
   score: number
@@ -145,8 +158,11 @@ export interface Stats {
   processingTimeMs: number
 }
 
-/** Names of the tokenizers bundled with this build. */
+/** Names of the built-in tokenizers followed by the registered ones. */
 export declare function supportedTokenizers(): Array<string>
+
+/** Removes a registered tokenizer. Returns whether it existed. */
+export declare function unregisterTokenizer(name: string): boolean
 
 /** Initialises tokenizer tables on the libuv thread pool (default: `o200k_base`). */
 export declare function warmUp(tokenizers?: Array<string> | undefined | null): Promise<void>

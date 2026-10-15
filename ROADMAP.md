@@ -1,33 +1,35 @@
 # Roadmap
 
 Ideas, not promises. Items move up when there is evidence (an evaluation case,
-a benchmark, or user demand) that they improve real outcomes.
+a benchmark, or user demand) that they improve real outcomes. Each item has a
+GitHub issue; comment there if you need it.
 
-## Next (0.2)
-- **More tokenizers** where an exact, permissively licensed implementation
-  exists in Rust (e.g. Hugging Face `tokenizers` JSON files supplied by the
-  caller, for Llama/Mistral/Qwen families). Anthropic and Google do not publish
-  tokenizers for current models; only approximate counts would be possible.
-- **Pinned documents** (always include, e.g. a system file or the open editor tab).
+## Next
+- **Pinned documents** (always include, e.g. a system file or the open editor tab) — #9.
 - **Syntax-aware chunking for code** (function/class boundaries via tree-sitter),
-  behind a feature flag to keep the default binary small.
-- **Larger, externally sourced evaluation set** (e.g. a slice of a public QA
-  benchmark with passage labels) so quality claims do not rest on author-written
-  cases.
-- **WASM build** for browsers and edge runtimes (NAPI-RS supports
-  `wasm32-wasip1-threads`), so the playground can run fully client-side.
+  behind a feature flag to keep the default binary small — #10.
+- **Larger, externally sourced evaluation set** so quality claims do not rest on
+  author-written cases — #15.
+- **Caller-supplied relevance scores** blended with BM25 (hybrid with an existing
+  vector search) — #16.
+- **Query synonyms** supplied by the caller to soften the lexical gap — #17.
 
 ## Later
-- Optional query expansion hooks (caller-supplied synonyms) to soften the
-  lexical gap without bundling a model.
-- Optional caller-supplied relevance scores (e.g. from an existing vector
-  search) blended with BM25.
+- Stop-word lists for Portuguese and Spanish — #4.
+- Playground: more options and shareable settings in the URL — #3.
+- Trusted Publishing (OIDC) instead of an npm token — #6.
+- A browser-friendly ESM entry of the TypeScript API on top of the WASM build.
 - Streaming / incremental API for very large corpora.
-- Framework adapters: LangChain.js document compressor, Vercel AI SDK helper,
-  LlamaIndex.TS node postprocessor.
-- Answer-quality evaluation harness with pluggable LLM judges (opt-in, never
-  required, never run in CI by default).
-- Parallel chunking/scoring across documents within one call (rayon).
+- Parallel deduplication and selection (today only chunking and analysis run in parallel).
+- Answer-quality evaluation harness with pluggable LLM judges (the opt-in interface
+  exists in `benchmarks/src/answer-eval.ts`; no judge is bundled or run in CI).
+
+## Done
+- 0.2.0: Hugging Face tokenizers (#8), `{meta.*}` header placeholders (#2), `tbo`
+  CLI (#14), WebAssembly build and in-browser playground (#11), LangChain.js adapter
+  (#12), Vercel AI SDK helpers (#13), Criterion benchmarks (#5), parallel chunking
+  and analysis (#18).
+- 0.1.0: the engine, the Node.js package, the playground, evaluation and benchmarks.
 
 ## Explicitly out of scope
 - Remote embeddings, vector databases, hosted storage, accounts or billing.

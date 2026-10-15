@@ -1,0 +1,37 @@
+{
+  "name": "token-budget-optimizer-ai-sdk",
+  "version": "0.2.0",
+  "description": "Vercel AI SDK helpers: pack retrieved documents and trim large tool results to a hard token budget (token-budget-optimizer).",
+  "keywords": ["ai-sdk", "vercel-ai", "agents", "rag", "tool-results", "token-budget", "context-window", "llm"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Truta446/token-budget-optimizer.git",
+    "directory": "packages/ai-sdk"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test --test-reporter=spec tests/*.test.ts"
+  },
+  "dependencies": {
+    "token-budget-optimizer": "workspace:^"
+  },
+  "peerDependencies": {
+    "ai": ">=7.0.0 <8.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "ai": "7.0.141",
+    "typescript": "7.0.2"
+  }
+}

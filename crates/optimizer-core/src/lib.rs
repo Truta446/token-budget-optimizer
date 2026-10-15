@@ -38,12 +38,14 @@ use std::time::Instant;
 use rustc_hash::FxHashSet;
 
 pub use error::OptimizeError;
-pub use tokenizer::{Tokenizer, TokenizerKind, count_tokens, warm_up};
+pub use tokenizer::{Tokenizer, TokenizerId, TokenizerKind, count_tokens, registered_names, warm_up};
+#[cfg(feature = "huggingface")]
+pub use tokenizer::{register_huggingface_tokenizer, unregister_tokenizer};
 pub use types::*;
 
 use chunker::{Chunk, TokenIndex, chunk_document};
 use context::{Piece, assemble};
-use ranking::{Bm25, ChunkTerms, Interner, chunk_terms, query_index, query_terms};
+use ranking::{Bm25, ChunkTerms, Interner, analyze_chunk, query_index, query_terms};
 use selection::{BudgetModel, Candidate, Phase, Pools, SelectOptions, select};
 
 pub const MAX_DOCUMENT_ID_BYTES: usize = 1024;
@@ -51,6 +53,22 @@ pub const MAX_TARGET_TOKENS: usize = 1_000_000;
 pub const MAX_HEADER_TEMPLATE_BYTES: usize = 1024;
 pub const MAX_SEPARATOR_BYTES: usize = 256;
 pub const MAX_NEIGHBOR_HOPS: usize = 16;
+pub const MAX_HEADER_FIELDS: usize = 32;
+pub const MAX_HEADER_FIELD_VALUE_BYTES: usize = 4096;
+/// Below this much input, thread overhead outweighs parallel chunking and analysis.
+pub const PARALLEL_MIN_BYTES: usize = 256 * 1024;
+
+/// Maps `items` in order, in parallel when the `parallel` feature is on and
+/// `parallel` is true. Output order (and therefore the result) is identical.
+fn ordered_map<T: Sync, R: Send>(items: &[T], parallel: bool, f: impl Fn(&T) -> R + Sync + Send) -> Vec<R> {
+    #[cfg(feature = "parallel")]
+    if parallel {
+        use rayon::prelude::*;
+        return items.par_iter().map(f).collect();
+    }
+    let _ = parallel;
+    items.iter().map(f).collect()
+}
 
 fn check_unit(field: &str, value: f64) -> Result<(), OptimizeError> {
     if value.is_finite() && (0.0..=1.0).contains(&value) {
@@ -100,6 +118,29 @@ pub fn validate(req: &OptimizeRequest) -> Result<(), OptimizeError> {
             ));
         }
         check_non_negative(&format!("documents[{i}].weight"), doc.weight)?;
+        if doc.header_fields.len() > MAX_HEADER_FIELDS {
+            return Err(OptimizeError::invalid(
+                format!("documents[{i}].headerFields"),
+                format!("at most {MAX_HEADER_FIELDS} fields"),
+            ));
+        }
+        for (key, value) in &doc.header_fields {
+            if !context::is_field_key(key) {
+                return Err(OptimizeError::invalid(
+                    format!("documents[{i}].headerFields"),
+                    format!(
+                        "key \"{}\" must be 1-64 letters, digits, `_`, `-` or `.`",
+                        context::sanitize_id(key)
+                    ),
+                ));
+            }
+            if value.len() > MAX_HEADER_FIELD_VALUE_BYTES {
+                return Err(OptimizeError::invalid(
+                    format!("documents[{i}].headerFields.{key}"),
+                    format!("must be at most {MAX_HEADER_FIELD_VALUE_BYTES} bytes"),
+                ));
+            }
+        }
     }
     let c = &req.chunking;
     if c.target_tokens == 0 || c.target_tokens > MAX_TARGET_TOKENS {
@@ -152,15 +193,23 @@ struct Scored {
 pub fn optimize(req: &OptimizeRequest) -> Result<OptimizeResult, OptimizeError> {
     let started = Instant::now();
     validate(req)?;
-    let tok = Tokenizer::new(req.tokenizer);
+    let tok = Tokenizer::resolve(&req.tokenizer)?;
+    let parallel = req.documents.iter().map(|d| d.content.len()).sum::<usize>() >= PARALLEL_MIN_BYTES;
 
-    // 1. Chunk.
+    // 1. Chunk (one tokenizer pass per document).
+    let indexed: Vec<_> = req.documents.iter().enumerate().collect();
+    let per_document = ordered_map(&indexed, parallel, |&(d, doc)| {
+        let index = TokenIndex::new(tok.token_starts(&doc.content));
+        (
+            index.total(),
+            chunk_document(&doc.id, d, &doc.content, &index, &req.chunking),
+        )
+    });
     let mut original_tokens = 0usize;
     let mut items: Vec<Scored> = Vec::new();
-    for (d, doc) in req.documents.iter().enumerate() {
-        let index = TokenIndex::new(tok.token_starts(&doc.content));
-        original_tokens += index.total();
-        for chunk in chunk_document(&doc.id, d, &doc.content, &index, &req.chunking) {
+    for (total, chunks) in per_document {
+        original_tokens += total;
+        for chunk in chunks {
             items.push(Scored {
                 chunk,
                 duplicate: None,
@@ -186,12 +235,15 @@ pub fn optimize(req: &OptimizeRequest) -> Result<OptimizeResult, OptimizeError> 
     let stemming = req.ranking.stemming;
     let q_terms = query_terms(&req.query, stemming);
     let q_index = query_index(&q_terms);
+    let unique_idx: Vec<usize> = (0..items.len())
+        .filter(|&i| items[i].duplicate.is_none())
+        .collect();
+    let pending = ordered_map(&unique_idx, parallel, |&i| {
+        analyze_chunk(text_of(&items[i]), stemming, &q_index)
+    });
     let mut interner = Interner::default();
-    for item in items.iter_mut().filter(|s| s.duplicate.is_none()) {
-        let text = item
-            .chunk
-            .text(&req.documents[item.chunk.location.document_index].content);
-        item.terms = Some(chunk_terms(text, stemming, &q_index, &mut interner));
+    for (i, terms) in unique_idx.into_iter().zip(pending) {
+        items[i].terms = Some(terms.intern(&mut interner));
     }
     let unique: Vec<&ChunkTerms> = items.iter().filter_map(|s| s.terms.as_ref()).collect();
     let bm25 = Bm25::new(&unique, q_terms.len(), &req.ranking);
@@ -272,7 +324,7 @@ pub fn optimize(req: &OptimizeRequest) -> Result<OptimizeResult, OptimizeError> 
     }
 
     // 5. Select.
-    let mut budget = BudgetModel::new(&tok, &req.format, req.max_tokens, req.documents.len());
+    let mut budget = BudgetModel::new(&tok, &req.format, req.max_tokens, &req.documents);
     let decisions = select(
         Pools {
             ranked: &ranked,
@@ -429,7 +481,7 @@ pub fn optimize(req: &OptimizeRequest) -> Result<OptimizeResult, OptimizeError> 
         selected,
         discarded,
         query_terms: q_terms,
-        tokenizer: req.tokenizer,
+        tokenizer: req.tokenizer.clone(),
         stats,
     })
 }

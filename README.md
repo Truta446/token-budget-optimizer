@@ -16,6 +16,8 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#before-and-after">Before and after</a> ·
   <a href="#how-it-works">How it works</a> ·
+  <a href="#command-line">CLI</a> ·
+  <a href="#integrations">Integrations</a> ·
   <a href="#playground">Playground</a> ·
   <a href="#performance">Performance</a> ·
   <a href="#quality">Quality</a> ·
@@ -59,8 +61,10 @@ This library replaces that step with something deterministic, explainable and ex
 - **Explainable.** Every chunk carries its source, line range, offsets, token count, score breakdown, matched terms and a reason.
 - **Verbatim.** Text is copied from your documents unchanged. Nothing is summarised or rewritten.
 - **Deterministic.** Same input, byte-identical output.
-- **Fast.** About 2.6 M tokens/s end to end; async calls run on the libuv thread pool.
-- **Typed.** Document `metadata` types flow through to every returned chunk.
+- **Fast.** About 4 M tokens/s end to end on large inputs, which are chunked and analysed in parallel; async calls run on the libuv thread pool.
+- **Any tokenizer.** Built-in OpenAI encodings, or register a Hugging Face `tokenizer.json` (Llama, Mistral, Qwen, …) for exact counts.
+- **Typed.** Document `metadata` types flow through to every returned chunk, and can be rendered in headers (`[{meta.title}]({meta.url})`).
+- **Everywhere you need it.** A `tbo` command line, a LangChain.js compressor, Vercel AI SDK helpers, and a WebAssembly build that also runs in the browser.
 - Zero runtime dependencies, prebuilt binaries for Linux, macOS and Windows, Node ≥ 22.12.
 
 ## Install
@@ -116,6 +120,45 @@ dropped database.ts#1: no_query_match
 
 More: [RAG with citations and duplicate removal](https://github.com/Truta446/token-budget-optimizer/blob/main/examples/rag/index.ts) · [code-assistant context from a directory](https://github.com/Truta446/token-budget-optimizer/blob/main/examples/code-context/index.ts)
 
+## Command line
+
+The package ships a `tbo` binary. In a git repository it reads `git ls-files` (so `.gitignore` is respected), skips binaries and large files, and ranks source above tests, docs and vendored code.
+
+```sh
+npx -p token-budget-optimizer tbo pack . --query "why does checkout return 402?" --budget 8000 > context.txt
+tbo pack ./src -q "rate limiting" -b 4000 --include ts,md --json -o result.json
+tbo count README.md docs/*.md
+```
+
+The context goes to stdout (or `--out`), a summary to stderr:
+
+```text
+tbo: 16 files (0 skipped), 3,759 -> 584 tokens (budget 600, o200k_base), 4 chunks from 3 files in 73 ms
+tbo: dropped 14 budget_exceeded, 13 no_query_match, 3 exact_duplicate
+```
+
+Run `tbo --help` for every option (`--tokenizer`, `--tokenizer-json`, `--neighbors`, `--order`, `--max-file-kb`, …).
+
+## Integrations
+
+| Package | What it gives you |
+|---|---|
+| [`token-budget-optimizer-langchain`](https://github.com/Truta446/token-budget-optimizer/tree/main/packages/langchain) | `TokenBudgetCompressor`, a LangChain.js `BaseDocumentCompressor` for `ContextualCompressionRetriever`: relevant, de-duplicated sections within a budget, with provenance in `metadata.tokenBudget`. |
+| [`token-budget-optimizer-ai-sdk`](https://github.com/Truta446/token-budget-optimizer/tree/main/packages/ai-sdk) | `fitToolResults()`, a Vercel AI SDK `prepareStep` that trims oversized tool results in agent loops to what matters for the request, and `fitContext()` to pack retrieved documents into one message. |
+
+```ts
+import { generateText, stepCountIs } from "ai";
+import { fitToolResults } from "token-budget-optimizer-ai-sdk";
+
+await generateText({
+  model,
+  tools,
+  prompt,
+  stopWhen: stepCountIs(5),
+  prepareStep: fitToolResults({ maxTokensPerResult: 2000 }), // a 200-record search result stays useful and small
+});
+```
+
 ## Before and after
 
 A 16-file Express API (3,759 tokens), the question *"Why do requests fail with 401 token_expired right after login? Could it be clock skew?"*, and a 700-token budget:
@@ -162,22 +205,33 @@ The playground binds to `127.0.0.1`, limits input size, rate-limits requests, se
 
 ## Performance
 
-Median / p95 in milliseconds, synthetic code-like corpora, 8,000-token budget. Intel Core Ultra 9 275HX, Linux, Node 24.15. The machine was shared during the run, so treat these as indicative. Full output in [`benchmarks/results/runtime.md`](https://github.com/Truta446/token-budget-optimizer/blob/main/benchmarks/results/runtime.md).
+Median / p95 in milliseconds, synthetic code-like corpora, 8,000-token budget. Intel Core Ultra 9 275HX (24 logical cores), Linux, Node 24.15, version 0.2.0, 1-minute load average 1.3 at the start of the run. Full output in [`benchmarks/results/runtime.md`](https://github.com/Truta446/token-budget-optimizer/blob/main/benchmarks/results/runtime.md).
 
 | Corpus | Input tokens | `optimizeContextSync` | `optimizeContext` | All-JS BM25 selector¹ |
 |---|---:|---:|---:|---:|
-| 10 docs × 200 lines | 21,294 | **7.9** / 8.7 | 11.6 / 13.6 | 29.5 / 44.6 |
-| 100 docs × 200 lines | 212,122 | **64.4** / 70.0 | 75.1 / 83.3 | 293.7 / 343.0 |
-| 1,000 docs × 50 lines | 525,551 | **209.8** / 227.1 | 258.6 / 280.0 | 752.0 / 825.8 |
-| 10 docs × 5,000 lines | 536,176 | **206.0** / 220.0 | 249.3 / 266.8 | 758.6 / 794.4 |
+| 10 docs × 200 lines | 21,294 | **8.1** / 9.9 | 12.2 / 12.6 | 27.5 / 42.3 |
+| 100 docs × 200 lines | 212,122 | **33.3** / 38.1 | 33.0 / 36.5 | 411.3 / 425.6 |
+| 1,000 docs × 50 lines | 525,551 | **159.2** / 176.7 | 170.6 / 212.4 | 1,018.1 / 2,172.1 |
+| 10 docs × 5,000 lines | 536,176 | **124.9** / 134.9 | 147.6 / 161.9 | 875.2 / 917.0 |
 
 | Token counting, `o200k_base` | `countTokens` (Rust) | js-tiktoken | tiktoken (WASM) |
 |---|---:|---:|---:|
-| 1,000 chars | **0.02** | 0.07 | 0.09 |
-| 100,000 chars | **1.43** | 7.42 | 8.45 |
-| 1,000,000 chars | **14.47** | 107.10 | 83.64 |
+| 1,000 chars | **0.02** | 0.09 | 0.12 |
+| 100,000 chars | **1.99** | 9.24 | 10.41 |
+| 1,000,000 chars | **14.38** | 114.05 | 83.78 |
 
-16 concurrent `optimizeContext` calls take 422 ms on the default 4-thread libuv pool, against 1,001 ms for 16 sequential calls.
+16 concurrent `optimizeContext` calls take 352 ms on the default 4-thread libuv pool, against 696 ms for 16 sequential calls.
+
+Inputs of 256 KB or more are chunked and analysed in parallel (rayon). Engine-only Criterion benchmarks (`cargo bench -p optimizer-core`) on the same machine:
+
+| Corpus | Sequential | Parallel | Speed-up |
+|---|---:|---:|---:|
+| 10 × 200 lines (below the threshold) | 8.1 ms | 7.9 ms | — |
+| 100 × 200 lines | 79.1 ms | 48.2 ms | 1.6× |
+| 1,000 × 50 lines | 198.6 ms | 120.3 ms | 1.65× |
+| 10 × 5,000 lines | 198.9 ms | 112.8 ms | 1.76× |
+
+The speed-up is modest because deduplication, selection and the final exact count are still sequential. The WebAssembly build runs the same test suite about 3.6× slower than native.
 
 ¹ A reasonable JavaScript implementation of the same idea (js-tiktoken + BM25 + greedy fill) that does *less* work. It shows the cost of doing this in JS; it is not a port. The first call that uses a tokenizer pays a one-off setup of a few hundred milliseconds; call `warmup()` at start-up.
 
@@ -212,7 +266,9 @@ Methodology: [`benchmarks/README.md`](https://github.com/Truta446/token-budget-o
 | `optimizeContextSync(options)` | Same result, on the calling thread. |
 | `countTokens(text, { tokenizer? })` | Exact token count. `<\|endoftext\|>` and other special markers count as plain text. |
 | `warmup(tokenizers?)` | Preloads tokenizer tables off the request path. Call at start-up. |
-| `SUPPORTED_TOKENIZERS` | `["o200k_base", "cl100k_base"]` |
+| `registerTokenizer(name, tokenizerJson)` | Registers a Hugging Face `tokenizer.json` (string or bytes) under `name`. Parses off the main thread. |
+| `unregisterTokenizer(name)` / `listTokenizers()` | Remove a registered tokenizer / list built-in and registered names. |
+| `SUPPORTED_TOKENIZERS` | The built-in tokenizers: `["o200k_base", "cl100k_base"]` |
 | `TokenBudgetError` | Thrown or rejected on invalid input. `code` is `TBO_INVALID_INPUT`, `TBO_UNSUPPORTED_TOKENIZER`, `TBO_NATIVE_BINDING` or `TBO_INTERNAL`. |
 
 ### Options
@@ -234,7 +290,7 @@ Methodology: [`benchmarks/README.md`](https://github.com/Truta446/token-budget-o
 | `selection.includeUnmatched` | `false` | Fill leftover budget with chunks that don't match. |
 | `dedup.exact` / `dedup.normalized` | `true` / `true` | |
 | `order` | `"relevance"` | or `"source"` |
-| `format.headerTemplate` | `"[Source: {id}, lines {startLine}-{endLine}]"` | `""` for no headers. |
+| `format.headerTemplate` | `"[Source: {id}, lines {startLine}-{endLine}]"` | Also `{meta.<key>}` from the document's `metadata` (string, number or boolean; sanitised). `""` for no headers. |
 | `format.separator` | `"\n\n"` | |
 
 ### Result
@@ -273,7 +329,19 @@ Every chunk has `id` (`"{documentId}#{index}"`), `documentId`, `startLine`, `end
 | `o200k_base` (default) | OpenAI GPT-4o family, GPT-4.1, o-series |
 | `cl100k_base` | OpenAI GPT-4, GPT-3.5-turbo, `text-embedding-3-*` |
 
-Implemented with [`tiktoken-rs`](https://crates.io/crates/tiktoken-rs) and verified in the test suite against [`js-tiktoken`](https://www.npmjs.com/package/js-tiktoken). For other model families (Claude, Gemini, Llama, Mistral, …) the counts are an **approximation**, because those models use different tokenizers. Keep a safety margin there.
+| Any name you register | The model whose Hugging Face `tokenizer.json` you load (Llama, Mistral, Qwen, Gemma, …) |
+
+Built-ins are implemented with [`tiktoken-rs`](https://crates.io/crates/tiktoken-rs) and verified in the test suite against [`js-tiktoken`](https://www.npmjs.com/package/js-tiktoken). Registered tokenizers use the Hugging Face [`tokenizers`](https://crates.io/crates/tokenizers) crate and are verified against the reference Python package.
+
+```ts
+import { readFile } from "node:fs/promises";
+import { optimizeContext, registerTokenizer } from "token-budget-optimizer";
+
+await registerTokenizer("llama-3.1", await readFile("./tokenizer.json")); // you provide the file
+const result = await optimizeContext({ query, maxTokens: 6000, tokenizer: "llama-3.1", documents });
+```
+
+The library never downloads anything. Truncation and padding settings in the file are ignored, and no BOS/EOS tokens are added. Markers defined as added tokens (`</s>`, `<|eot_id|>`) count as one token, as the tokenizer defines them; built-in tokenizers count every marker as plain text. Anthropic and Google do not publish tokenizers for current models, so for Claude and Gemini every count is an **approximation**: keep a safety margin.
 
 ## Security and privacy
 
@@ -290,10 +358,10 @@ Report vulnerabilities as described in [SECURITY.md](https://github.com/Truta446
 
 - **Lexical, not semantic.** "login" doesn't match "sign-in", and "authentication" doesn't match "auth". Use the vocabulary of your documents, or add synonyms to the query.
 - **English-centric** stemming and stop words. Other languages work without those benefits; CJK uses bigrams.
-- **Exact token counts only for OpenAI encodings.**
+- **Exact token counts need the model's tokenizer**: built in for OpenAI encodings, or registered from a `tokenizer.json`. Claude and Gemini counts are approximations.
 - **Line-based chunks**, not syntax-aware. `neighborHops` helps keep a function together.
 - **Small corpora** give noisy BM25 statistics.
-- **One thread per call.** Concurrency comes from running calls in parallel.
+- **Parallelism is partial.** Chunking and term analysis run in parallel for large inputs; deduplication, selection and the final count do not.
 
 ## Supported platforms
 
@@ -303,7 +371,9 @@ Report vulnerabilities as described in [SECURITY.md](https://github.com/Truta446
 | Linux x64 — Node 26 | ✅ Tested locally |
 | Linux x64 musl (Alpine), Node 24 | ✅ Published package smoke-tested in CI |
 | Linux arm64 musl, macOS x64, Windows arm64 | 📦 Prebuilt binaries shipped, not covered by tests |
-| Browsers, Deno, Bun, edge runtimes | ❌ Not in 0.1 (a WASM build is on the [roadmap](https://github.com/Truta446/token-budget-optimizer/blob/main/ROADMAP.md)) |
+| WebAssembly (`token-budget-optimizer-wasm32-wasi`), Node 24 | ✅ Full library test suite run against the WASM engine in CI; used automatically when no native binary fits |
+| Browsers (WASM) | 🧪 Works in the playground's browser mode (tested in Firefox). Needs a cross-origin isolated page (COOP/COEP headers) because the engine uses shared memory |
+| Deno, Bun, edge runtimes | ❓ Not tested |
 
 ## How it compares
 
@@ -323,6 +393,8 @@ They combine well: select with this library first, then compress if you need to 
 ```sh
 pnpm install
 pnpm build        # native addon (Rust) + TypeScript + playground client
+pnpm --filter token-budget-optimizer build:wasm   # WebAssembly build (needs the wasm32-wasip1-threads target)
+cargo bench -p optimizer-core --features parallel # engine-only Criterion benchmarks
 pnpm test         # Rust tests + library tests + playground tests
 pnpm lint         # rustfmt + clippy
 pnpm typecheck
@@ -333,7 +405,9 @@ pnpm examples
 
 ```text
 crates/optimizer-core/            Rust engine, no Node.js dependency
-packages/token-budget-optimizer/  npm package: NAPI-RS bindings + TypeScript API
+packages/token-budget-optimizer/  npm package: NAPI-RS bindings, TypeScript API, `tbo` CLI
+packages/langchain/               token-budget-optimizer-langchain
+packages/ai-sdk/                  token-budget-optimizer-ai-sdk
 apps/playground/                  local demo (Hono + vanilla TS)
 benchmarks/                       runtime benchmarks, quality evaluation, baselines
 fixtures/                         evaluation corpora and labelled cases
@@ -344,7 +418,7 @@ Building from source needs Rust 1.85+. See [CONTRIBUTING.md](https://github.com/
 
 ## Roadmap
 
-More tokenizers, pinned documents, syntax-aware chunking for code, a larger external evaluation set, a WASM build, and adapters for LangChain.js and the Vercel AI SDK. See [ROADMAP.md](https://github.com/Truta446/token-budget-optimizer/blob/main/ROADMAP.md).
+Pinned documents, syntax-aware chunking for code, caller-supplied relevance scores, query synonyms and a larger external evaluation set. See [ROADMAP.md](https://github.com/Truta446/token-budget-optimizer/blob/main/ROADMAP.md).
 
 ## License
 

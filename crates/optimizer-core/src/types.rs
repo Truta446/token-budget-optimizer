@@ -1,6 +1,6 @@
 //! Public request / response types of the optimization pipeline.
 
-use crate::tokenizer::TokenizerKind;
+use crate::tokenizer::TokenizerId;
 
 /// A document supplied by the caller. Content is treated as untrusted, inert text.
 #[derive(Debug, Clone, PartialEq)]
@@ -10,6 +10,9 @@ pub struct Document {
     pub content: String,
     /// Multiplier applied to every chunk score of this document. Must be finite and `>= 0`.
     pub weight: f64,
+    /// Values available to `format.header_template` as `{meta.<key>}`.
+    /// Sanitised like ids before rendering.
+    pub header_fields: Vec<(String, String)>,
 }
 
 impl Document {
@@ -18,7 +21,13 @@ impl Document {
             id: id.into(),
             content: content.into(),
             weight: 1.0,
+            header_fields: Vec::new(),
         }
+    }
+
+    pub fn with_header_field(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.header_fields.push((key.into(), value.into()));
+        self
     }
 
     pub fn with_weight(mut self, weight: f64) -> Self {
@@ -147,7 +156,8 @@ pub enum ContextOrder {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FormatOptions {
     /// Header emitted before each section. Placeholders: `{id}`, `{startLine}`,
-    /// `{endLine}`. The id is sanitised (control characters replaced, length capped).
+    /// `{endLine}` and `{meta.<key>}` (from [`Document::header_fields`]; empty when
+    /// missing). Values are sanitised (control characters replaced, length capped).
     pub header_template: String,
     /// Text placed between sections.
     pub separator: String,
@@ -167,7 +177,7 @@ pub struct OptimizeRequest {
     pub query: String,
     /// Hard upper bound for the token count of the final `context` string.
     pub max_tokens: usize,
-    pub tokenizer: TokenizerKind,
+    pub tokenizer: TokenizerId,
     pub documents: Vec<Document>,
     pub chunking: ChunkingOptions,
     pub ranking: RankingOptions,
@@ -325,6 +335,6 @@ pub struct OptimizeResult {
     pub discarded: Vec<DiscardedChunk>,
     /// Normalised query terms actually used for ranking (stop words removed).
     pub query_terms: Vec<String>,
-    pub tokenizer: TokenizerKind,
+    pub tokenizer: TokenizerId,
     pub stats: OptimizeStats,
 }

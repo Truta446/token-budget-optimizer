@@ -16,5 +16,10 @@ optimizer-core = { path = "../../../crates/optimizer-core" }
 napi = { version = "3.14.2", default-features = false, features = ["napi4"] }
 napi-derive = "3.6.12"
 
+[features]
+default = ["parallel", "huggingface"]
+parallel = ["optimizer-core/parallel"]
+huggingface = ["optimizer-core/huggingface"]
+
 [build-dependencies]
 napi-build = "2.6.0"

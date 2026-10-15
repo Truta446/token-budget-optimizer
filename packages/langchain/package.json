@@ -1,0 +1,54 @@
+{
+  "name": "token-budget-optimizer-langchain",
+  "version": "0.2.0",
+  "description": "LangChain.js document compressor that keeps the most relevant chunks within a hard token budget (token-budget-optimizer).",
+  "keywords": [
+    "langchain",
+    "rag",
+    "retriever",
+    "document-compressor",
+    "token-budget",
+    "context-window",
+    "llm"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Truta446/token-budget-optimizer.git",
+    "directory": "packages/langchain"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test --test-reporter=spec tests/*.test.ts"
+  },
+  "dependencies": {
+    "token-budget-optimizer": "workspace:^"
+  },
+  "peerDependencies": {
+    "@langchain/core": ">=1.0.0 <2.0.0"
+  },
+  "devDependencies": {
+    "@langchain/classic": "1.0.52",
+    "@langchain/core": "1.2.17",
+    "@types/node": "26.6.5",
+    "typescript": "7.0.2"
+  }
+}

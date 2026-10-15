@@ -15,8 +15,8 @@
         <p class="tagline">Send less context. Keep what matters.</p>
       </div>
       <p class="note">
-        Runs the real Rust engine on this machine through the npm package. Lexical (BM25) relevance, not semantic search.
-        Nothing you paste is stored or logged.
+        Runs the real Rust engine: on this machine's server through the npm package, or in your browser as WebAssembly.
+        Lexical (BM25) relevance, not semantic search. Nothing you paste is stored or logged.
       </p>
     </header>
 
@@ -47,6 +47,13 @@
           <div class="row">
             <label for="targetTokens">Chunk size <span class="hint">(auto if empty)</span></label>
             <input id="targetTokens" type="number" min="16" max="4000" step="1" placeholder="auto" />
+          </div>
+          <div class="row">
+            <label for="engine">Engine</label>
+            <select id="engine">
+              <option value="server">Server (native Rust)</option>
+              <option value="browser">This browser (WebAssembly)</option>
+            </select>
           </div>
           <div class="row">
             <label for="order">Section order</label>

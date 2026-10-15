@@ -1,6 +1,9 @@
-/** Tokenizers bundled with the native engine. Counts are exact for these BPE
- * encodings and only approximate for other model families. */
-export type TokenizerName = "o200k_base" | "cl100k_base";
+/** Tokenizers bundled with the engine (OpenAI BPE encodings). */
+export type BuiltinTokenizer = "o200k_base" | "cl100k_base";
+
+/** A built-in tokenizer, or the name of one added with `registerTokenizer()`.
+ * Counts are exact for the tokenizer used and approximate for other models. */
+export type TokenizerName = BuiltinTokenizer | (string & {});
 
 /** Free-form metadata attached to a document. Passed through untouched and
  * never interpreted (no file access, no network). */
@@ -57,8 +60,10 @@ export interface DedupOptions {
 }
 
 export interface FormatOptions {
-  /** Section header. Placeholders: `{id}`, `{startLine}`, `{endLine}`. Use `""`
-   * for no headers. Default `"[Source: {id}, lines {startLine}-{endLine}]"`. */
+  /** Section header. Placeholders: `{id}`, `{startLine}`, `{endLine}` and
+   * `{meta.<key>}` (a string, number or boolean from the document's `metadata`;
+   * empty when missing). Values are sanitised. Use `""` for no headers.
+   * Default `"[Source: {id}, lines {startLine}-{endLine}]"`. */
   headerTemplate?: string;
   /** Text between sections. Default `"\n\n"`. */
   separator?: string;

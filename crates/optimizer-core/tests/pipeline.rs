@@ -70,7 +70,7 @@ fn final_token_count_is_exact() {
         r.stats.optimized_tokens
     );
     let r = optimize(&OptimizeRequest {
-        tokenizer: TokenizerKind::Cl100kBase,
+        tokenizer: TokenizerKind::Cl100kBase.into(),
         ..request("token 401", 80, auth_corpus())
     })
     .unwrap();
@@ -363,7 +363,7 @@ proptest! {
         let a = optimize(&req).unwrap();
         let b = optimize(&req).unwrap();
         prop_assert!(a.stats.optimized_tokens <= max);
-        prop_assert_eq!(count_tokens(&a.context, req.tokenizer), a.stats.optimized_tokens);
+        prop_assert_eq!(count_tokens(&a.context, TokenizerKind::O200kBase), a.stats.optimized_tokens);
         prop_assert_eq!(&a.context, &b.context);
         prop_assert_eq!(&a.selected, &b.selected);
         prop_assert_eq!(&a.discarded, &b.discarded);
@@ -430,4 +430,60 @@ fn stemming_matches_inflected_forms_and_can_be_disabled() {
     })
     .unwrap();
     assert!(r.selected.is_empty());
+}
+
+#[test]
+fn header_fields_render_and_are_budgeted() {
+    let req = OptimizeRequest {
+        format: FormatOptions {
+            header_template: "[{meta.title}]({meta.url})".into(),
+            separator: "\n\n".into(),
+        },
+        ..request(
+            "token rotation",
+            60,
+            vec![
+                doc("a", "token rotation happens hourly\n")
+                    .with_header_field("title", "Rotation")
+                    .with_header_field("url", "https://docs.example.com/rotation"),
+            ],
+        )
+    };
+    let r = optimize(&req).unwrap();
+    assert!(
+        r.context
+            .starts_with("[Rotation](https://docs.example.com/rotation)\n")
+    );
+    assert_eq!(
+        count_tokens(&r.context, TokenizerKind::O200kBase),
+        r.stats.optimized_tokens
+    );
+
+    let bad = OptimizeRequest {
+        documents: vec![doc("a", "x").with_header_field("bad key", "v")],
+        ..req.clone()
+    };
+    assert!(optimize(&bad).unwrap_err().to_string().contains("headerFields"));
+}
+
+#[test]
+fn large_inputs_are_deterministic_across_runs() {
+    // Above PARALLEL_MIN_BYTES, so the parallel path runs when the feature is on.
+    let documents: Vec<Document> = (0..40)
+        .map(|d| {
+            let content: String = (0..400)
+                .map(|i| format!("line {i} of doc {d}: cache {} retry {}\n", i % 7, (i * d) % 11))
+                .collect();
+            doc(&format!("doc-{d}.txt"), &content)
+        })
+        .collect();
+    assert!(documents.iter().map(|d| d.content.len()).sum::<usize>() > PARALLEL_MIN_BYTES);
+    let req = request("cache retry 3", 2_000, documents);
+    let a = optimize(&req).unwrap();
+    for _ in 0..3 {
+        let b = optimize(&req).unwrap();
+        assert_eq!(a.context, b.context);
+        assert_eq!(a.selected, b.selected);
+        assert_eq!(a.discarded, b.discarded);
+    }
 }

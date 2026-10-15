@@ -1,8 +1,10 @@
 # Builds prebuilt binaries for every target in packages/token-budget-optimizer/package.json
-# and publishes the per-platform packages plus the main package to npm.
+# (8 native targets + WebAssembly), publishes the per-platform packages and the main
+# package, then the adapter packages (langchain, ai-sdk).
 #
-# NOT YET EXERCISED. Review before the first release: target list, runners,
-# NPM_TOKEN permissions, and do a dry run (workflow_dispatch with dry_run=true).
+# Create the GitHub Release for the tag before publishing (e.g. `gh release create`,
+# which also pushes the tag): `napi pre-publish` attaches the binaries to it.
+# Use workflow_dispatch with dry_run=true to rehearse.
 name: Release
 
 on:
@@ -34,6 +36,7 @@ jobs:
           - { host: macos-latest, target: aarch64-apple-darwin, flags: "" }
           - { host: windows-latest, target: x86_64-pc-windows-msvc, flags: "" }
           - { host: windows-latest, target: aarch64-pc-windows-msvc, flags: "" }
+          - { host: ubuntu-latest, target: wasm32-wasip1-threads, flags: "--no-default-features --features huggingface" }
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -60,7 +63,9 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: bindings-${{ matrix.target }}
-          path: packages/token-budget-optimizer/binding/*.node
+          path: |
+            packages/token-budget-optimizer/binding/*.node
+            packages/token-budget-optimizer/binding/token-budget-optimizer.wasm32-wasi.wasm
           if-no-files-found: error
 
   publish:
@@ -79,9 +84,15 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1-threads
       - run: pnpm install --frozen-lockfile
-      - name: Build TypeScript (and host binding for the loader/types)
-        run: pnpm --filter token-budget-optimizer build
+      - name: Build TypeScript, the loader and the WASI glue files
+        working-directory: packages/token-budget-optimizer
+        run: |
+          pnpm run build:native
+          pnpm run build:wasm
+          pnpm run build:ts
       - uses: actions/download-artifact@v8
         with:
           path: packages/token-budget-optimizer/artifacts
@@ -89,7 +100,7 @@ jobs:
         working-directory: packages/token-budget-optimizer
         run: |
           pnpm exec napi create-npm-dirs
-          pnpm exec napi artifacts --output-dir artifacts --npm-dir npm
+          pnpm exec napi artifacts --output-dir artifacts --npm-dir npm --build-output-dir binding
           ls -R npm
       - name: Pack (dry run)
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run
@@ -97,9 +108,24 @@ jobs:
         run: |
           pnpm exec napi pre-publish -t npm --dry-run
           npm pack --dry-run
+      - name: Pack adapters
+        run: |
+          mkdir -p adapters-dist
+          for p in langchain ai-sdk; do
+            (cd packages/$p && pnpm run build && pnpm pack --pack-destination ../../adapters-dist)
+          done
+          ls adapters-dist
+      - name: Adapters (dry run)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: for t in adapters-dist/*.tgz; do npm publish "$t" --dry-run --access public; done
       - name: Publish
         if: github.event_name == 'push' || !inputs.dry_run
         working-directory: packages/token-budget-optimizer
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance --access public
+      - name: Publish adapters
+        if: github.event_name == 'push' || !inputs.dry_run
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: for t in adapters-dist/*.tgz; do npm publish "$t" --provenance --access public; done

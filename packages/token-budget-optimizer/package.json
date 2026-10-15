@@ -1,6 +1,6 @@
 {
   "name": "token-budget-optimizer",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Send less context. Keep what matters. Deterministic, local-first selection of LLM context under a hard token budget, powered by Rust.",
   "keywords": [
     "llm",
@@ -50,7 +50,8 @@
       "x86_64-apple-darwin",
       "aarch64-apple-darwin",
       "x86_64-pc-windows-msvc",
-      "aarch64-pc-windows-msvc"
+      "aarch64-pc-windows-msvc",
+      "wasm32-wasip1-threads"
     ]
   },
   "scripts": {
@@ -61,12 +62,22 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test --test-reporter=spec tests/*.test.ts",
     "prepublishOnly": "napi pre-publish -t npm",
-    "prepack": "node -e \"for (const f of ['README.md','LICENSE']) require('node:fs').copyFileSync('../../'+f, f)\""
+    "prepack": "node -e \"for (const f of ['README.md','LICENSE']) require('node:fs').copyFileSync('../../'+f, f)\"",
+    "build:wasm": "napi build --platform --release --manifest-path native/Cargo.toml --package-json-path package.json --output-dir binding --js index.cjs --dts index.d.cts --target wasm32-wasip1-threads --no-default-features --features huggingface"
   },
   "devDependencies": {
+    "@emnapi/core": "2.0.0-alpha.6",
+    "@emnapi/runtime": "2.0.0-alpha.6",
     "@napi-rs/cli": "3.10.8",
+    "@napi-rs/wasm-runtime": "1.2.5",
+    "@tybys/wasm-util": "0.10.4",
     "@types/node": "26.6.5",
+    "emnapi": "2.0.0-alpha.6",
     "js-tiktoken": "1.0.21",
     "typescript": "7.0.2"
+  },
+  "bin": {
+    "tbo": "./dist/cli.js",
+    "token-budget-optimizer": "./dist/cli.js"
   }
 }

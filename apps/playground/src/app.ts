@@ -115,7 +115,11 @@ export function createApp(options: AppOptions = {}) {
     secureHeaders({
       contentSecurityPolicy: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
+        // 'wasm-unsafe-eval' only allows compiling WebAssembly (browser mode), not JS eval.
+        // The emnapi runtime probes `new Function` once and falls back when the
+        // CSP blocks it; the console reports that probe, which is expected.
+        scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
+        workerSrc: ["'self'"],
         styleSrc: ["'self'"],
         imgSrc: ["'self'", "data:"],
         connectSrc: ["'self'"],
@@ -125,6 +129,10 @@ export function createApp(options: AppOptions = {}) {
         formAction: ["'self'"],
       },
       referrerPolicy: "no-referrer",
+      // Cross-origin isolation enables SharedArrayBuffer, which the threaded
+      // WASM engine of browser mode needs.
+      crossOriginOpenerPolicy: "same-origin",
+      crossOriginEmbedderPolicy: "require-corp",
     }),
   );
 

@@ -6,3 +6,7 @@ packages/token-budget-optimizer/npm/
 apps/playground/public/client.js
 *.log
 .DS_Store
+*.wasm
+packages/token-budget-optimizer/binding/*wasi*
+packages/token-budget-optimizer/binding/browser.js
+adapters-dist/

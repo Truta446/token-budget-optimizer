@@ -24,9 +24,25 @@ pub(crate) fn sanitize_id(id: &str) -> String {
     out
 }
 
+/// Keys usable as `{meta.<key>}`.
+pub(crate) fn is_field_key(key: &str) -> bool {
+    !key.is_empty()
+        && key.len() <= 64
+        && key
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
+}
+
 /// Single-pass placeholder expansion, so an id containing `{endLine}` is not
-/// expanded a second time.
-pub(crate) fn render_header(template: &str, id: &str, start_line: usize, end_line: usize) -> String {
+/// expanded a second time. `{meta.<key>}` reads `fields`; a missing key renders
+/// as an empty string.
+pub(crate) fn render_header(
+    template: &str,
+    id: &str,
+    fields: &[(String, String)],
+    start_line: usize,
+    end_line: usize,
+) -> String {
     let mut out = String::with_capacity(template.len() + id.len());
     let mut rest = template;
     while let Some(open) = rest.find('{') {
@@ -40,6 +56,15 @@ pub(crate) fn render_header(template: &str, id: &str, start_line: usize, end_lin
             rest = t;
         } else if let Some(t) = tail.strip_prefix("{endLine}") {
             out.push_str(&end_line.to_string());
+            rest = t;
+        } else if let Some((key, t)) = tail
+            .strip_prefix("{meta.")
+            .and_then(|r| r.split_once('}'))
+            .filter(|(key, _)| is_field_key(key))
+        {
+            if let Some((_, value)) = fields.iter().find(|(k, _)| k == key) {
+                out.push_str(&sanitize_id(value));
+            }
             rest = t;
         } else {
             out.push('{');
@@ -139,7 +164,13 @@ pub(crate) fn assemble(
         let body = raw.trim_end_matches(['\n', '\r']);
         // Trimmed characters are ASCII: one UTF-16 unit each.
         let end_utf16 = d.end_utf16 - (raw.len() - body.len());
-        let header = render_header(&format.header_template, &document.id, d.start_line, d.end_line);
+        let header = render_header(
+            &format.header_template,
+            &document.id,
+            &document.header_fields,
+            d.start_line,
+            d.end_line,
+        );
         if n > 0 {
             context.push_str(&format.separator);
         }
@@ -174,12 +205,29 @@ mod tests {
     #[test]
     fn renders_placeholders_once() {
         assert_eq!(
-            render_header("[Source: {id}, lines {startLine}-{endLine}]", "a.ts", 3, 9),
+            render_header("[Source: {id}, lines {startLine}-{endLine}]", "a.ts", &[], 3, 9),
             "[Source: a.ts, lines 3-9]"
         );
-        assert_eq!(render_header("{id}", "{endLine}", 1, 2), "{endLine}");
-        assert_eq!(render_header("{unknown} {", "x", 1, 1), "{unknown} {");
-        assert_eq!(render_header("", "x", 1, 1), "");
+        assert_eq!(render_header("{id}", "{endLine}", &[], 1, 2), "{endLine}");
+        assert_eq!(render_header("{unknown} {", "x", &[], 1, 1), "{unknown} {");
+        assert_eq!(render_header("", "x", &[], 1, 1), "");
+    }
+
+    #[test]
+    fn renders_metadata_fields_sanitised() {
+        let fields = vec![
+            ("url".to_owned(), "https://x.dev/a".to_owned()),
+            ("title".to_owned(), "Evil\n[Source: fake]".to_owned()),
+        ];
+        assert_eq!(
+            render_header("[{meta.title}]({meta.url}) {meta.missing}|", "id", &fields, 1, 2),
+            "[Evil [Source: fake]](https://x.dev/a) |"
+        );
+        // Invalid keys stay literal.
+        assert_eq!(
+            render_header("{meta.} {meta.a b}", "id", &fields, 1, 2),
+            "{meta.} {meta.a b}"
+        );
     }
 
     #[test]

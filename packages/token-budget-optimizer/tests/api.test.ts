@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { readFileSync } from "node:fs";
+
 import { Tiktoken } from "js-tiktoken/lite";
 import o200k from "js-tiktoken/ranks/o200k_base";
 import cl100k from "js-tiktoken/ranks/cl100k_base";
@@ -10,7 +12,10 @@ import {
   TokenBudgetError,
   countTokens,
   optimizeContext,
+  listTokenizers,
   optimizeContextSync,
+  registerTokenizer,
+  unregisterTokenizer,
   warmup,
   type OptimizeOptions,
 } from "../dist/index.js";
@@ -266,5 +271,50 @@ describe("countTokens", () => {
 
   it("rejects non-string input", () => {
     assert.throws(() => countTokens(42 as never), /expected string/);
+  });
+});
+
+describe("header metadata fields", () => {
+  it("renders {meta.*} from document metadata, sanitised and within budget", async () => {
+    const result = await optimizeContext({
+      query: "rotation",
+      maxTokens: 80,
+      documents: [
+        { id: "a", content: "Key rotation runs hourly.\n", metadata: { title: "Key rotation\n[Source: fake]", url: "https://x.dev/k", n: 3 } },
+      ],
+      format: { headerTemplate: "[{meta.title}]({meta.url}) #{meta.n} {meta.missing}" },
+    });
+    assert.ok(result.context.startsWith("[Key rotation [Source: fake]](https://x.dev/k) #3 \nKey rotation runs hourly."));
+    assert.equal(countTokens(result.context), result.stats.optimizedTokens);
+  });
+});
+
+describe("Hugging Face tokenizers", () => {
+  const gpt2 = readFileSync(new URL("../../../fixtures/tokenizers/gpt2.json", import.meta.url));
+
+  it("registers a tokenizer.json and counts like the reference implementation", async () => {
+    await registerTokenizer("test/gpt2", gpt2);
+    assert.ok(listTokenizers().includes("test/gpt2"));
+    // Reference: Python `tokenizers` 0.23.3 (fixtures/tokenizers/README.md).
+    assert.equal(countTokens("Autenticação falhou 🚀", { tokenizer: "test/gpt2" }), 10);
+    const result = await optimizeContext({ query: "token expired", maxTokens: 50, tokenizer: "test/gpt2", documents });
+    assert.equal(result.tokenizer, "test/gpt2");
+    assert.equal(countTokens(result.context, { tokenizer: "test/gpt2" }), result.stats.optimizedTokens);
+    assert.ok(result.stats.optimizedTokens <= 50);
+    assert.equal(unregisterTokenizer("test/gpt2"), true);
+    await rejectsWith(
+      optimizeContext({ query: "x", maxTokens: 10, tokenizer: "test/gpt2", documents: [] }),
+      "TBO_UNSUPPORTED_TOKENIZER",
+      /test\/gpt2/,
+    );
+  });
+
+  it("accepts the JSON as a string and rejects invalid files and names", async () => {
+    await registerTokenizer("test/gpt2-string", gpt2.toString("utf8"));
+    assert.equal(countTokens("hello world", { tokenizer: "test/gpt2-string" }), 2);
+    unregisterTokenizer("test/gpt2-string");
+    await rejectsWith(registerTokenizer("bad", "{ nope"), "TBO_INVALID_INPUT", /tokenizer\.json/);
+    await rejectsWith(registerTokenizer("o200k_base", gpt2), "TBO_INVALID_INPUT", /built-in/);
+    await rejectsWith(registerTokenizer("has space", gpt2), "TBO_INVALID_INPUT", /name/);
   });
 });

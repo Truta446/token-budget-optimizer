@@ -23,8 +23,13 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test -p optimizer-core
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Tests without optional features
+        run: cargo test -p optimizer-core
+      - name: Tests with parallel + huggingface
+        run: cargo test -p optimizer-core --all-features
+      - name: Benchmarks compile
+        run: cargo bench -p optimizer-core --no-run
 
   node:
     name: Node ${{ matrix.node }} on ${{ matrix.os }}
@@ -46,13 +51,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build native addon and TypeScript
         run: pnpm --filter token-budget-optimizer build
+      - name: Build adapters
+        run: pnpm --filter token-budget-optimizer-langchain --filter token-budget-optimizer-ai-sdk build
       - name: Typecheck
         run: pnpm run typecheck
-      - name: Smoke test (plain JavaScript, any Node version)
+      - name: Smoke test (plain JavaScript)
         run: node packages/token-budget-optimizer/tests/smoke.mjs
       # The TypeScript test files use Node's built-in type stripping (verified locally on 22.22, 24.15, 26.10).
-      - name: Library tests
+      - name: Library and CLI tests
         run: pnpm --filter token-budget-optimizer test
+      - name: Adapter tests
+        run: pnpm --filter token-budget-optimizer-langchain --filter token-budget-optimizer-ai-sdk test
       - name: Playground tests
         run: pnpm --filter @token-budget-optimizer/playground test
       - name: Examples
@@ -60,6 +69,33 @@ jobs:
       - name: Quality evaluation
         if: matrix.node >= 24 && matrix.os == 'ubuntu-latest'
         run: pnpm run eval
+
+  wasm:
+    name: WebAssembly build (full test suite on WASI)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1-threads
+      - uses: Swatinem/rust-cache@v2
+      - run: pnpm install --frozen-lockfile
+      - name: Build TypeScript and the WASI binding
+        working-directory: packages/token-budget-optimizer
+        run: |
+          pnpm run build:native
+          pnpm run build:wasm
+          pnpm run build:ts
+      - name: Library tests against the WASM engine
+        working-directory: packages/token-budget-optimizer
+        run: NAPI_RS_NATIVE_LIBRARY_PATH="$PWD/binding/token-budget-optimizer.wasi.cjs" node --test --test-reporter=spec tests/api.test.ts
+      - name: Playground bundles the browser engine
+        run: pnpm --filter @token-budget-optimizer/playground build && test -f apps/playground/public/wasm/engine.js
 
   package:
     name: npm pack dry run
@@ -77,6 +113,10 @@ jobs:
       - run: pnpm --filter token-budget-optimizer build
       - run: npm pack --dry-run
         working-directory: packages/token-budget-optimizer
+      - name: Adapters pack with the workspace dependency resolved
+        run: |
+          pnpm --filter token-budget-optimizer-langchain --filter token-budget-optimizer-ai-sdk build
+          for p in langchain ai-sdk; do (cd packages/$p && pnpm pack --pack-destination /tmp && tar -xOf /tmp/token-budget-optimizer-$p-*.tgz package/package.json | grep '"token-budget-optimizer": "\^'); done
 
   alpine:
     name: Published package on Alpine (musl)

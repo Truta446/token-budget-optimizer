@@ -35,6 +35,7 @@ const el = {
   tokenizer: $<HTMLSelectElement>("tokenizer"),
   targetTokens: $<HTMLInputElement>("targetTokens"),
   order: $<HTMLSelectElement>("order"),
+  engine: $<HTMLSelectElement>("engine"),
   redundancy: $<HTMLInputElement>("redundancyPenalty"),
   redundancyValue: $<HTMLOutputElement>("redundancyValue"),
   neighborHops: $<HTMLInputElement>("neighborHops"),
@@ -185,6 +186,93 @@ function render(result: ApiResult) {
   );
 }
 
+/** Output of the engine's raw `optimizeSync` binding (browser mode). */
+interface RawLocation {
+  chunkId: string;
+  documentId: string;
+  documentIndex: number;
+  chunkIndex: number;
+  startLine: number;
+  endLine: number;
+  startOffset: number;
+  endOffset: number;
+  tokens: number;
+}
+interface RawOutput {
+  context: string;
+  stats: OptimizationStats;
+  queryTerms: string[];
+  tokenizer: string;
+  sections: ContextSection[];
+  selected: { location: RawLocation; text: string; reason: string; selectionRank: number; score: SelectedChunk["score"] }[];
+  discarded: { location: RawLocation; reason: string; duplicateOf?: string; score?: SelectedChunk["score"] }[];
+}
+interface WasmEngine {
+  optimizeSync(input: unknown): RawOutput;
+}
+
+let wasmEngine: Promise<WasmEngine> | undefined;
+
+function loadWasmEngine(): Promise<WasmEngine> {
+  if (!crossOriginIsolated) {
+    return Promise.reject(new Error("Browser mode needs a cross-origin isolated page (COOP/COEP headers)"));
+  }
+  // Built by scripts/build-wasm.mjs; not part of the TypeScript program.
+  const url = "/wasm/engine.js";
+  wasmEngine ??= import(/* @vite-ignore */ url) as Promise<WasmEngine>;
+  return wasmEngine;
+}
+
+/** Same request shape the server builds, run on the engine compiled to WebAssembly. */
+async function runInBrowser(body: Record<string, unknown>, docs: Doc[]): Promise<ApiResult> {
+  const engine = await loadWasmEngine();
+  const out = engine.optimizeSync({
+    query: body.query,
+    maxTokens: body.maxTokens,
+    tokenizer: body.tokenizer,
+    order: body.order,
+    documents: docs.map((d) => ({ id: d.id, content: d.content })),
+    chunking: body.targetTokens === undefined ? undefined : { targetTokens: body.targetTokens },
+    selection: { redundancyPenalty: body.redundancyPenalty, neighborHops: body.neighborHops },
+    ranking: { stemming: body.stemming },
+  });
+  const info = (l: RawLocation) => ({
+    id: l.chunkId,
+    documentId: l.documentId,
+    documentIndex: l.documentIndex,
+    chunkIndex: l.chunkIndex,
+    startLine: l.startLine,
+    endLine: l.endLine,
+    startOffset: l.startOffset,
+    endOffset: l.endOffset,
+    tokens: l.tokens,
+  });
+  return {
+    context: out.context,
+    stats: out.stats,
+    queryTerms: out.queryTerms,
+    tokenizer: out.tokenizer,
+    sections: out.sections,
+    chunks: out.selected.map((c) => ({
+      ...info(c.location),
+      text: c.text,
+      reason: c.reason as SelectedChunk["reason"],
+      rank: c.selectionRank,
+      score: c.score,
+    })),
+    discarded: out.discarded.map((c) => {
+      const text = docs[c.location.documentIndex]!.content.slice(c.location.startOffset, c.location.endOffset);
+      return {
+        ...info(c.location),
+        reason: c.reason as DiscardedChunk["reason"],
+        duplicateOf: c.duplicateOf,
+        score: c.score,
+        preview: text.length > 200 ? `${text.slice(0, 200)}…` : text,
+      };
+    }),
+  };
+}
+
 async function run(event: Event) {
   event.preventDefault();
   const target = el.targetTokens.value.trim();
@@ -201,6 +289,22 @@ async function run(event: Event) {
   };
   el.run.disabled = true;
   setStatus("Optimizing…");
+  if (el.engine.value === "browser") {
+    try {
+      const started = performance.now();
+      const result = await runInBrowser(body, docs);
+      render(result);
+      setStatus(
+        `Done in your browser (WebAssembly): engine ${result.stats.processingTimeMs.toFixed(1)} ms, ` +
+          `${(performance.now() - started).toFixed(0)} ms total. Nothing was sent to the server.`,
+      );
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "The in-browser engine failed", true);
+    } finally {
+      el.run.disabled = false;
+    }
+    return;
+  }
   try {
     const response = await fetch("/api/optimize", {
       method: "POST",
@@ -271,8 +375,9 @@ async function init() {
       }),
     );
     if (examples[0]) loadExample(examples[0]);
-    // `#run` runs the first example immediately (handy for demos and screenshots).
-    if (location.hash === "#run") el.form.requestSubmit();
+    // `#run` runs the first example immediately; `#run-browser` does it with the WASM engine.
+    if (location.hash === "#run-browser") el.engine.value = "browser";
+    if (location.hash === "#run" || location.hash === "#run-browser") el.form.requestSubmit();
   } catch {
     setStatus("Could not load examples", true);
   }

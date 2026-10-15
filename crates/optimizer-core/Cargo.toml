@@ -12,6 +12,20 @@ publish = false
 tiktoken-rs = "0.12.1"
 unicode-normalization = "0.1.25"
 rustc-hash = "2.1.3"
+rayon = { version = "1.12.0", optional = true }
+tokenizers = { version = "0.23.2", default-features = false, features = ["fancy-regex"], optional = true }
+
+[features]
+default = []
+# Parallel chunking and term analysis for large inputs (output is identical).
+parallel = ["dep:rayon"]
+# Register Hugging Face tokenizer.json files at runtime.
+huggingface = ["dep:tokenizers"]
 
 [dev-dependencies]
 proptest = "1.12.0"
+criterion = "0.8.2"
+
+[[bench]]
+name = "optimizer"
+harness = false

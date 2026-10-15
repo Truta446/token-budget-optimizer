@@ -13,6 +13,7 @@ import type {
   ScoreBreakdown,
   SelectedChunk,
   SelectionReason,
+  BuiltinTokenizer,
   TokenizerName,
 } from "./types.js";
 
@@ -40,7 +41,8 @@ function binding(): typeof Native {
   return native;
 }
 
-export const SUPPORTED_TOKENIZERS: readonly TokenizerName[] = Object.freeze(["o200k_base", "cl100k_base"]);
+/** The built-in tokenizers. See `listTokenizers()` for registered ones too. */
+export const SUPPORTED_TOKENIZERS: readonly BuiltinTokenizer[] = Object.freeze(["o200k_base", "cl100k_base"]);
 
 const MAX_TOKENS_LIMIT = 0xffff_ffff;
 
@@ -70,14 +72,34 @@ function checkGroup(field: string, value: unknown, keys: Record<string, "number"
   for (const [key, type] of Object.entries(keys)) checkOptional(`${field}.${key}`, value[key], type);
 }
 
+/** Type check only: the engine knows which tokenizers are registered. */
 function checkTokenizer(field: string, tokenizer: unknown): void {
   if (tokenizer === undefined) return;
-  if (typeof tokenizer !== "string" || !SUPPORTED_TOKENIZERS.includes(tokenizer as TokenizerName)) {
+  if (typeof tokenizer !== "string" || tokenizer.length === 0) {
     throw new TokenBudgetError(
       "TBO_UNSUPPORTED_TOKENIZER",
       `Unsupported tokenizer ${JSON.stringify(tokenizer)} in \`${field}\`. Supported tokenizers: ${SUPPORTED_TOKENIZERS.join(", ")}`,
     );
   }
+}
+
+/** Keys referenced as `{meta.<key>}` in a header template. */
+function headerKeys(template: string | undefined): string[] {
+  if (!template) return [];
+  return [...new Set([...template.matchAll(/\{meta\.([A-Za-z0-9_.-]{1,64})\}/g)].map((m) => m[1]!))];
+}
+
+/** Only referenced, scalar metadata values cross the boundary. */
+function headerFields(keys: string[], metadata: DocumentMetadata | undefined) {
+  if (keys.length === 0 || !metadata) return undefined;
+  const fields: { key: string; value: string }[] = [];
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      fields.push({ key, value: String(value) });
+    }
+  }
+  return fields;
 }
 
 /** Structural validation. Numeric ranges are validated once, in Rust. */
@@ -121,11 +143,17 @@ function validate(options: unknown): asserts options is OptimizeOptions {
 
 /** Builds the native input explicitly so unknown keys (and metadata) never cross the boundary. */
 function toNativeInput(options: OptimizeOptions): Native.OptimizeInput {
+  const keys = headerKeys(options.format?.headerTemplate);
   return {
     query: options.query,
     maxTokens: options.maxTokens,
     tokenizer: options.tokenizer,
-    documents: options.documents.map((d) => ({ id: d.id, content: d.content, weight: d.weight })),
+    documents: options.documents.map((d) => ({
+      id: d.id,
+      content: d.content,
+      weight: d.weight,
+      headerFields: headerFields(keys, d.metadata),
+    })),
     chunking: options.chunking && {
       targetTokens: options.chunking.targetTokens,
       overlapTokens: options.chunking.overlapTokens,
@@ -240,6 +268,39 @@ export function optimizeContextSync<M extends DocumentMetadata = DocumentMetadat
  * that uses a tokenizer otherwise pays a one-off initialisation cost (a few
  * hundred milliseconds for `o200k_base`). Call it at server start-up.
  */
+/**
+ * Registers a Hugging Face tokenizer (the content of a `tokenizer.json` file,
+ * as a string or bytes) under `name`, so `tokenizer: name` gives exact counts
+ * for that model family (Llama, Mistral, Qwen, ...). Parsing runs off the main
+ * thread. The library never downloads anything: you provide the file.
+ */
+export async function registerTokenizer(name: string, tokenizerJson: string | Uint8Array): Promise<void> {
+  if (typeof name !== "string") throw invalid("name", `expected string, got ${describe(name)}`);
+  if (typeof tokenizerJson !== "string" && !(tokenizerJson instanceof Uint8Array)) {
+    throw invalid("tokenizerJson", `expected string or Uint8Array, got ${describe(tokenizerJson)}`);
+  }
+  const api = binding();
+  if (typeof api.registerTokenizer !== "function") {
+    throw new TokenBudgetError("TBO_UNSUPPORTED_TOKENIZER", "This build does not include Hugging Face tokenizer support");
+  }
+  try {
+    await api.registerTokenizer(name, tokenizerJson);
+  } catch (error) {
+    throw fromNativeError(error);
+  }
+}
+
+/** Removes a tokenizer added with `registerTokenizer()`. Returns whether it existed. */
+export function unregisterTokenizer(name: string): boolean {
+  const api = binding();
+  return typeof api.unregisterTokenizer === "function" ? api.unregisterTokenizer(name) : false;
+}
+
+/** Built-in tokenizers followed by registered ones. */
+export function listTokenizers(): string[] {
+  return binding().supportedTokenizers();
+}
+
 export async function warmup(tokenizers: readonly TokenizerName[] = ["o200k_base"]): Promise<void> {
   if (!Array.isArray(tokenizers)) throw invalid("tokenizers", `expected an array, got ${describe(tokenizers)}`);
   tokenizers.forEach((t, i) => checkTokenizer(`tokenizers[${i}]`, t));
