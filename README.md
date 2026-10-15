@@ -301,7 +301,8 @@ Report vulnerabilities as described in [SECURITY.md](https://github.com/Truta446
 |---|---|
 | Linux x64 and arm64 (glibc), macOS arm64, Windows x64 — Node 22 and 24 | ✅ Built and fully tested in [CI](https://github.com/Truta446/token-budget-optimizer/blob/main/.github/workflows/ci.yml) |
 | Linux x64 — Node 26 | ✅ Tested locally |
-| Linux musl (x64, arm64), macOS x64, Windows arm64 | 📦 Prebuilt binaries shipped, not covered by tests |
+| Linux x64 musl (Alpine), Node 24 | ✅ Published package smoke-tested in CI |
+| Linux arm64 musl, macOS x64, Windows arm64 | 📦 Prebuilt binaries shipped, not covered by tests |
 | Browsers, Deno, Bun, edge runtimes | ❌ Not in 0.1 (a WASM build is on the [roadmap](https://github.com/Truta446/token-budget-optimizer/blob/main/ROADMAP.md)) |
 
 ## How it compares
