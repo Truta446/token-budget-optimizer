@@ -4,7 +4,7 @@
   --text: #16181d;
   --muted: #5d6472;
   --border: #dde1e7;
-  --accent: #2f5bd3;
+  --accent: #0f766e;
   --accent-text: #ffffff;
   --good: #1f7a4d;
   --warn: #9a5b00;
@@ -20,15 +20,15 @@
     --text: #e7e9ee;
     --muted: #9aa2b1;
     --border: #2a2f39;
-    --accent: #7c9cff;
-    --accent-text: #0b0d12;
+    --accent: #2dd4bf;
+    --accent-text: #04201d;
     --good: #5cc290;
     --warn: #e0a84a;
     --bad: #ff8a80;
     --code-bg: #0d0f13;
   }
 }
-* { box-sizing: border-box; }
+* { box-sizing: border-box; scrollbar-color: var(--border) transparent; scrollbar-width: thin; }
 body {
   margin: 0;
   background: var(--bg);

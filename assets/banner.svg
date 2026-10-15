@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">token-budget-optimizer</title>
+  <desc id="desc">Send less context. Keep what matters. Sixteen files totalling 3,759 tokens become five relevant sections of 658 tokens, under a 700 token budget.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07141A"/>
+      <stop offset="1" stop-color="#0D2229"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.76" cy="0.45" r="0.55">
+      <stop offset="0" stop-color="#14B8A6" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#14B8A6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5EEAD4"/>
+      <stop offset="1" stop-color="#0D9488"/>
+    </linearGradient>
+    <linearGradient id="meter" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2DD4BF"/>
+      <stop offset="1" stop-color="#34D399"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#FFFFFF" stroke-opacity="0.035" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#5EEAD4"/>
+    </marker>
+    <style>
+      .sans { font-family: Inter, "Segoe UI", Ubuntu, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace; }
+      .doc { fill: #10262E; stroke: #FFFFFF; stroke-opacity: 0.12; }
+      .ln { fill: #FFFFFF; fill-opacity: 0.14; }
+      .hit { fill: #2DD4BF; fill-opacity: 0.85; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect width="1280" height="640" fill="url(#grid)"/>
+  <rect width="1280" height="640" fill="url(#glow)"/>
+
+  <!-- Left: identity -->
+  <g transform="translate(88 146)">
+    <!-- mark: a stack of bars narrowing into a bracketed budget -->
+    <rect x="0" y="4" width="64" height="10" rx="5" fill="#FFFFFF" fill-opacity="0.18"/>
+    <rect x="0" y="22" width="64" height="10" rx="5" fill="url(#mark)"/>
+    <rect x="0" y="40" width="64" height="10" rx="5" fill="#FFFFFF" fill-opacity="0.18"/>
+    <rect x="0" y="58" width="44" height="10" rx="5" fill="url(#mark)"/>
+    <path d="M76 0 H84 V72 H76" fill="none" stroke="#5EEAD4" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="88" y="280" class="sans" font-size="52" font-weight="800" fill="#FFFFFF" letter-spacing="-1">token-budget-optimizer</text>
+  <text x="88" y="334" class="sans" font-size="27" font-weight="500" fill="#C3D9DD">Send less context.</text>
+  <text x="88" y="369" class="sans" font-size="27" font-weight="500" fill="#C3D9DD">Keep what matters.</text>
+
+  <g class="sans" font-size="17" font-weight="600">
+    <rect x="88" y="414" width="118" height="36" rx="18" fill="#FFFFFF" fill-opacity="0.07" stroke="#FFFFFF" stroke-opacity="0.14"/>
+    <text x="147" y="438" text-anchor="middle" fill="#E2F0F2">Rust core</text>
+    <rect x="218" y="414" width="118" height="36" rx="18" fill="#FFFFFF" fill-opacity="0.07" stroke="#FFFFFF" stroke-opacity="0.14"/>
+    <text x="277" y="438" text-anchor="middle" fill="#E2F0F2">TypeScript</text>
+    <rect x="348" y="414" width="114" height="36" rx="18" fill="#FFFFFF" fill-opacity="0.07" stroke="#FFFFFF" stroke-opacity="0.14"/>
+    <text x="405" y="438" text-anchor="middle" fill="#E2F0F2">Local only</text>
+    <rect x="474" y="414" width="138" height="36" rx="18" fill="#FFFFFF" fill-opacity="0.07" stroke="#FFFFFF" stroke-opacity="0.14"/>
+    <text x="543" y="438" text-anchor="middle" fill="#E2F0F2">Exact tokens</text>
+  </g>
+  <text x="88" y="500" class="mono" font-size="17" fill="#7FA3AA">npm install token-budget-optimizer</text>
+
+  <!-- Right: before -->
+  <text x="716" y="136" class="sans" font-size="14" font-weight="700" fill="#7FA3AA" letter-spacing="2">BEFORE</text>
+  <g>
+    <rect class="doc" x="764" y="190" width="150" height="186" rx="10"/>
+    <rect class="doc" x="740" y="172" width="150" height="186" rx="10"/>
+    <rect class="doc" x="716" y="154" width="150" height="186" rx="10"/>
+    <rect class="ln" x="734" y="176" width="96" height="7" rx="3.5"/>
+    <rect class="ln" x="734" y="194" width="112" height="7" rx="3.5"/>
+    <rect class="hit" x="734" y="212" width="80" height="7" rx="3.5"/>
+    <rect class="ln" x="734" y="230" width="104" height="7" rx="3.5"/>
+    <rect class="ln" x="734" y="248" width="70" height="7" rx="3.5"/>
+    <rect class="ln" x="734" y="266" width="112" height="7" rx="3.5"/>
+    <rect class="hit" x="734" y="284" width="92" height="7" rx="3.5"/>
+    <rect class="ln" x="734" y="302" width="60" height="7" rx="3.5"/>
+  </g>
+  <text x="716" y="414" class="sans" font-size="20" font-weight="700" fill="#FFFFFF">16 files</text>
+  <text x="716" y="440" class="mono" font-size="16" fill="#7FA3AA">3,759 tokens</text>
+
+  <path d="M936 266 H998" fill="none" stroke="#5EEAD4" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="967" y="250" text-anchor="middle" class="mono" font-size="13" fill="#5EEAD4">~2 ms</text>
+
+  <!-- Right: after -->
+  <text x="1018" y="136" class="sans" font-size="14" font-weight="700" fill="#5EEAD4" letter-spacing="2">AFTER</text>
+  <rect x="1018" y="154" width="190" height="186" rx="10" fill="#0F2E33" stroke="#2DD4BF" stroke-opacity="0.7"/>
+  <text x="1032" y="180" class="mono" font-size="11" fill="#5EEAD4">[Source: jwt.ts, 25-47]</text>
+  <rect class="hit" x="1032" y="192" width="120" height="7" rx="3.5"/>
+  <rect class="hit" x="1032" y="208" width="150" height="7" rx="3.5"/>
+  <rect class="hit" x="1032" y="224" width="96" height="7" rx="3.5"/>
+  <text x="1032" y="260" class="mono" font-size="11" fill="#5EEAD4">[Source: deployment.md]</text>
+  <rect class="hit" x="1032" y="272" width="140" height="7" rx="3.5"/>
+  <rect class="hit" x="1032" y="288" width="110" height="7" rx="3.5"/>
+  <rect class="hit" x="1032" y="304" width="132" height="7" rx="3.5"/>
+  <text x="1018" y="414" class="sans" font-size="20" font-weight="700" fill="#FFFFFF">5 sections</text>
+  <text x="1018" y="440" class="mono" font-size="16" fill="#5EEAD4">658 tokens</text>
+
+  <!-- Budget meter -->
+  <text x="716" y="494" class="sans" font-size="14" font-weight="700" fill="#7FA3AA" letter-spacing="2">BUDGET</text>
+  <rect x="716" y="508" width="492" height="16" rx="8" fill="#FFFFFF" fill-opacity="0.08"/>
+  <rect x="716" y="508" width="462" height="16" rx="8" fill="url(#meter)"/>
+  <text x="716" y="552" class="mono" font-size="15" fill="#C3D9DD">658 / 700 tokens · counted with o200k_base</text>
+</svg>

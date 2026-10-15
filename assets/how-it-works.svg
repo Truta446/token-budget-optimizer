@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="560" viewBox="0 0 1280 560" role="img" aria-labelledby="title desc">
+  <title id="title">How optimizeContext works</title>
+  <desc id="desc">Documents are chunked, deduplicated, ranked with BM25, selected greedily within the budget, assembled verbatim with source headers, and the final string is counted exactly. Duplicates, chunks without a query match and chunks that do not fit are returned in discarded with a reason.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07141A"/>
+      <stop offset="1" stop-color="#0D2229"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#7FA3AA"/>
+    </marker>
+    <marker id="arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#2DD4BF"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#FBBF24"/>
+    </marker>
+    <style>
+      .sans { font-family: Inter, "Segoe UI", Ubuntu, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace; }
+      .box { fill: #10262E; stroke: #FFFFFF; stroke-opacity: 0.14; }
+      .n { font-size: 13px; font-weight: 700; fill: #2DD4BF; }
+      .h { font-size: 18px; font-weight: 700; fill: #F1F7F8; }
+      .s { font-size: 13px; fill: #8FB0B6; }
+      .line { fill: none; stroke: #7FA3AA; stroke-width: 2; }
+      .drop { fill: none; stroke: #FBBF24; stroke-width: 2; stroke-dasharray: 5 5; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="560" rx="20" fill="url(#bg)"/>
+  <text x="32" y="52" class="sans" font-size="15" font-weight="700" fill="#2DD4BF" letter-spacing="2">HOW IT WORKS</text>
+  <text x="32" y="82" class="sans" font-size="22" font-weight="700" fill="#FFFFFF">optimizeContext({ query, maxTokens, documents })</text>
+  <text x="32" y="108" class="sans" font-size="15" fill="#8FB0B6">One call crosses into Rust; everything below runs natively.</text>
+
+  <!-- Stage boxes: x = 32 + i*206, width 182 -->
+  <g class="sans">
+    <rect class="box" x="32" y="160" width="182" height="132" rx="14"/>
+    <text x="50" y="190" class="n">1</text>
+    <text x="50" y="216" class="h">Chunk</text>
+    <text x="50" y="242" class="s">line-aware, token-bounded</text>
+    <text x="50" y="262" class="s">one tokenizer pass per doc</text>
+
+    <rect class="box" x="238" y="160" width="182" height="132" rx="14"/>
+    <text x="256" y="190" class="n">2</text>
+    <text x="256" y="216" class="h">Deduplicate</text>
+    <text x="256" y="242" class="s">exact + whitespace-</text>
+    <text x="256" y="262" class="s">normalised copies</text>
+
+    <rect class="box" x="444" y="160" width="182" height="132" rx="14"/>
+    <text x="462" y="190" class="n">3</text>
+    <text x="462" y="216" class="h">Rank (BM25)</text>
+    <text x="462" y="242" class="s">camelCase-aware terms,</text>
+    <text x="462" y="262" class="s">stemming, source-id bonus</text>
+
+    <rect class="box" x="650" y="160" width="182" height="132" rx="14"/>
+    <text x="668" y="190" class="n">4</text>
+    <text x="668" y="216" class="h">Select</text>
+    <text x="668" y="242" class="s">greedy by score, with a</text>
+    <text x="668" y="262" class="s">redundancy penalty</text>
+
+    <rect class="box" x="856" y="160" width="182" height="132" rx="14"/>
+    <text x="874" y="190" class="n">5</text>
+    <text x="874" y="216" class="h">Assemble</text>
+    <text x="874" y="242" class="s">verbatim text, merged</text>
+    <text x="874" y="262" class="s">sections, source headers</text>
+
+    <rect x="1062" y="160" width="186" height="132" rx="14" fill="#0F2E33" stroke="#2DD4BF" stroke-opacity="0.8"/>
+    <text x="1080" y="190" class="n">6</text>
+    <text x="1080" y="216" class="h">Exact count</text>
+    <text x="1080" y="242" class="s">re-count final string;</text>
+    <text x="1080" y="262" class="s">trim until ≤ maxTokens</text>
+  </g>
+
+  <path class="line" d="M214 226 H234" marker-end="url(#arrow)"/>
+  <path class="line" d="M420 226 H440" marker-end="url(#arrow)"/>
+  <path class="line" d="M626 226 H646" marker-end="url(#arrow)"/>
+  <path class="line" d="M832 226 H852" marker-end="url(#arrow)"/>
+  <path class="line" d="M1038 226 H1058" marker-end="url(#arrow)"/>
+
+  <!-- Discard branches -->
+  <path class="drop" d="M329 292 V398" marker-end="url(#arrow-amber)"/>
+  <text x="341" y="350" class="mono" font-size="13" fill="#FBBF24">exact_duplicate</text>
+  <path class="drop" d="M535 292 V398" marker-end="url(#arrow-amber)"/>
+  <text x="547" y="350" class="mono" font-size="13" fill="#FBBF24">no_query_match</text>
+  <path class="drop" d="M741 292 V398" marker-end="url(#arrow-amber)"/>
+  <text x="753" y="350" class="mono" font-size="13" fill="#FBBF24">budget_exceeded</text>
+
+  <rect x="238" y="404" width="594" height="56" rx="12" fill="#2A2412" stroke="#FBBF24" stroke-opacity="0.5"/>
+  <text x="256" y="430" class="mono" font-size="15" font-weight="700" fill="#FDE68A">result.discarded[]</text>
+  <text x="256" y="450" class="sans" font-size="13" fill="#D6C48A">every dropped chunk, with its reason, score and source lines</text>
+
+  <!-- Output -->
+  <path class="line" d="M1155 292 V398" stroke="#2DD4BF" marker-end="url(#arrow-teal)" style="stroke:#2DD4BF"/>
+  <rect x="902" y="404" width="346" height="112" rx="12" fill="#0F2E33" stroke="#2DD4BF" stroke-opacity="0.8"/>
+  <text x="920" y="432" class="mono" font-size="15" font-weight="700" fill="#5EEAD4">result.context</text>
+  <text x="920" y="452" class="sans" font-size="13" fill="#A7C9CE">ready-to-send string, ≤ maxTokens</text>
+  <text x="920" y="478" class="mono" font-size="15" font-weight="700" fill="#5EEAD4">result.chunks · stats</text>
+  <text x="920" y="498" class="sans" font-size="13" fill="#A7C9CE">source, lines, offsets, scores, matched terms</text>
+</svg>
