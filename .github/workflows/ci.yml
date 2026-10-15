@@ -77,3 +77,32 @@ jobs:
       - run: pnpm --filter token-budget-optimizer build
       - run: npm pack --dry-run
         working-directory: packages/token-budget-optimizer
+
+  alpine:
+    name: Published package on Alpine (musl)
+    runs-on: ubuntu-latest
+    container: node:24-alpine
+    steps:
+      - name: Install the latest published version and run it
+        working-directory: /tmp
+        run: |
+          npm init -y >/dev/null
+          npm install token-budget-optimizer@latest
+          ls node_modules | grep token-budget-optimizer
+          cat > smoke.mjs <<'JS'
+          import assert from "node:assert/strict";
+          import { countTokens, optimizeContext, warmup } from "token-budget-optimizer";
+          await warmup();
+          const r = await optimizeContext({
+            query: "credits",
+            maxTokens: 60,
+            documents: [
+              { id: "a.md", content: "Each record costs one credit." },
+              { id: "b.md", content: "Colors are configurable." },
+            ],
+          });
+          assert.match(r.context, /costs one credit/);
+          assert.equal(countTokens(r.context), r.stats.optimizedTokens);
+          console.log(`musl ok on ${process.arch}: ${r.stats.optimizedTokens} tokens`);
+          JS
+          node smoke.mjs
