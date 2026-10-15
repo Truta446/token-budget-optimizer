@@ -11,6 +11,10 @@ const post = (app: ReturnType<typeof createApp>, body: unknown) =>
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 
+// Response bodies are checked field by field below.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const json = (res: Response): Promise<any> => res.json();
+
 const valid = {
   query: "card payment fails",
   maxTokens: 200,
@@ -24,7 +28,7 @@ describe("playground API", () => {
   it("runs the real optimizer", async () => {
     const res = await post(createApp(), valid);
     assert.equal(res.status, 200);
-    const data = await res.json();
+    const data = await json(res);
     assert.match(data.context, /card payment fails/);
     assert.ok(data.stats.optimizedTokens <= 200);
     assert.equal(data.discarded[0].reason, "no_query_match");
@@ -34,7 +38,7 @@ describe("playground API", () => {
 
   it("serves the bundled examples", async () => {
     const res = await createApp().request("/api/examples");
-    const examples = await res.json();
+    const examples = await json(res);
     assert.ok(examples.length >= 3);
     for (const e of examples) {
       const run = await post(createApp(), { query: e.query, maxTokens: e.maxTokens, documents: e.documents });
@@ -69,7 +73,7 @@ describe("playground API", () => {
     for (const [body, pattern] of cases) {
       const res = await post(app, body);
       assert.equal(res.status, 400, JSON.stringify(body).slice(0, 80));
-      assert.match((await res.json()).message, pattern);
+      assert.match((await json(res)).message, pattern);
     }
   });
 
