@@ -1,0 +1,20 @@
+{
+  "name": "@token-budget-optimizer/benchmarks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "node src/evaluate.ts",
+    "bench": "node src/runtime.ts",
+    "bench:quick": "node src/runtime.ts --quick",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "js-tiktoken": "1.0.21",
+    "tiktoken": "1.0.22",
+    "token-budget-optimizer": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "typescript": "7.0.2"
+  }
+}

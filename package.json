@@ -1,0 +1,21 @@
+{
+  "name": "token-budget-optimizer-monorepo",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@10.4.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "pnpm --filter token-budget-optimizer build && pnpm --filter @token-budget-optimizer/playground build",
+    "test": "pnpm run test:rust && pnpm run test:js",
+    "test:rust": "cargo test -p optimizer-core",
+    "test:js": "pnpm --filter token-budget-optimizer test && pnpm --filter @token-budget-optimizer/playground test",
+    "lint": "cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "examples": "pnpm --filter \"./examples/*\" --workspace-concurrency=1 start",
+    "eval": "pnpm --filter @token-budget-optimizer/benchmarks eval",
+    "bench": "pnpm --filter @token-budget-optimizer/benchmarks bench",
+    "playground": "pnpm --filter @token-budget-optimizer/playground dev"
+  }
+}

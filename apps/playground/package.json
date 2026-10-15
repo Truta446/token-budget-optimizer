@@ -1,0 +1,21 @@
+{
+  "name": "@token-budget-optimizer/playground",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.client.json",
+    "start": "node src/server.ts",
+    "dev": "pnpm run build && node src/server.ts",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.client.json --noEmit",
+    "test": "node --test --test-reporter=spec tests/*.test.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.5",
+    "hono": "4.13.13",
+    "token-budget-optimizer": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "typescript": "7.0.2"
+  }
+}

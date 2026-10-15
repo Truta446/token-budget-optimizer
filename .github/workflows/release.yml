@@ -1,0 +1,103 @@
+# Builds prebuilt binaries for every target in packages/token-budget-optimizer/package.json
+# and publishes the per-platform packages plus the main package to npm.
+#
+# NOT YET EXERCISED. Review before the first release: target list, runners,
+# NPM_TOKEN permissions, and do a dry run (workflow_dispatch with dry_run=true).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build and pack without publishing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.host }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { host: ubuntu-latest, target: x86_64-unknown-linux-gnu, flags: "--use-napi-cross" }
+          - { host: ubuntu-latest, target: aarch64-unknown-linux-gnu, flags: "--use-napi-cross" }
+          - { host: ubuntu-latest, target: x86_64-unknown-linux-musl, flags: "-x" }
+          - { host: ubuntu-latest, target: aarch64-unknown-linux-musl, flags: "-x" }
+          - { host: macos-latest, target: x86_64-apple-darwin, flags: "" }
+          - { host: macos-latest, target: aarch64-apple-darwin, flags: "" }
+          - { host: windows-latest, target: x86_64-pc-windows-msvc, flags: "" }
+          - { host: windows-latest, target: aarch64-pc-windows-msvc, flags: "" }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: mlugg/setup-zig@v2
+        if: contains(matrix.target, 'musl')
+        with:
+          version: 0.15.2
+      - uses: taiki-e/install-action@v2
+        if: contains(matrix.target, 'musl')
+        with:
+          tool: cargo-zigbuild
+      - run: pnpm install --frozen-lockfile
+      - name: Build
+        shell: bash
+        working-directory: packages/token-budget-optimizer
+        run: pnpm exec napi build --platform --release --manifest-path native/Cargo.toml --package-json-path package.json --output-dir binding --js index.cjs --dts index.d.cts --target ${{ matrix.target }} ${{ matrix.flags }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bindings-${{ matrix.target }}
+          path: packages/token-budget-optimizer/binding/*.node
+          if-no-files-found: error
+
+  publish:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pnpm install --frozen-lockfile
+      - name: Build TypeScript (and host binding for the loader/types)
+        run: pnpm --filter token-budget-optimizer build
+      - uses: actions/download-artifact@v8
+        with:
+          path: packages/token-budget-optimizer/artifacts
+      - name: Create platform packages and move binaries
+        working-directory: packages/token-budget-optimizer
+        run: |
+          pnpm exec napi create-npm-dirs
+          pnpm exec napi artifacts --output-dir artifacts --npm-dir npm
+          ls -R npm
+      - name: Pack (dry run)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        working-directory: packages/token-budget-optimizer
+        run: npm pack --dry-run
+      - name: Publish
+        if: github.event_name == 'push' || !inputs.dry_run
+        working-directory: packages/token-budget-optimizer
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public

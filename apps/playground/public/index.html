@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Token Budget Optimizer · Playground</title>
+    <meta name="description" content="Select the most relevant context for an LLM under a hard token budget. Runs locally." />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/client.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <h1>Token Budget Optimizer <span class="badge">playground</span></h1>
+        <p class="tagline">Send less context. Keep what matters.</p>
+      </div>
+      <p class="note">
+        Runs the real Rust engine on this machine through the npm package. Lexical (BM25) relevance, not semantic search.
+        Nothing you paste is stored or logged.
+      </p>
+    </header>
+
+    <main class="layout">
+      <form id="form" class="panel inputs" novalidate>
+        <div class="row">
+          <label for="example">Example</label>
+          <select id="example"></select>
+        </div>
+
+        <div class="row">
+          <label for="query">Query</label>
+          <textarea id="query" rows="2" maxlength="2000" required></textarea>
+        </div>
+
+        <div class="grid">
+          <div class="row">
+            <label for="maxTokens">Token budget</label>
+            <input id="maxTokens" type="number" min="0" max="200000" step="1" required />
+          </div>
+          <div class="row">
+            <label for="tokenizer">Tokenizer</label>
+            <select id="tokenizer">
+              <option value="o200k_base">o200k_base (GPT-4o family)</option>
+              <option value="cl100k_base">cl100k_base (GPT-4, GPT-3.5)</option>
+            </select>
+          </div>
+          <div class="row">
+            <label for="targetTokens">Chunk size <span class="hint">(auto if empty)</span></label>
+            <input id="targetTokens" type="number" min="16" max="4000" step="1" placeholder="auto" />
+          </div>
+          <div class="row">
+            <label for="order">Section order</label>
+            <select id="order">
+              <option value="relevance">Most relevant first</option>
+              <option value="source">Source order</option>
+            </select>
+          </div>
+          <div class="row">
+            <label for="redundancyPenalty">Redundancy penalty <output id="redundancyValue" for="redundancyPenalty"></output></label>
+            <input id="redundancyPenalty" type="range" min="0" max="1" step="0.05" value="0.3" />
+          </div>
+          <div class="row">
+            <label for="neighborHops">Neighbor chunks</label>
+            <input id="neighborHops" type="number" min="0" max="4" step="1" value="0" />
+          </div>
+        </div>
+        <label class="check"><input id="stemming" type="checkbox" checked /> Light English stemming</label>
+
+        <div class="docs-head">
+          <h2>Documents <span id="docCount" class="hint"></span></h2>
+          <button type="button" id="addDoc" class="secondary">Add document</button>
+        </div>
+        <div id="docs" class="docs"></div>
+
+        <div class="actions">
+          <button type="submit" id="run">Optimize context</button>
+          <span id="status" class="status" role="status" aria-live="polite"></span>
+        </div>
+      </form>
+
+      <section class="panel results" aria-labelledby="resultsTitle">
+        <h2 id="resultsTitle">Result</h2>
+        <div id="empty" class="empty">Run the optimizer to see the selected context.</div>
+        <div id="output" hidden>
+          <dl class="stats" id="stats"></dl>
+          <div class="meter" aria-hidden="true"><div id="meterUsed"></div></div>
+          <p class="meter-label" id="meterLabel"></p>
+          <p class="terms">Query terms used for ranking: <span id="terms"></span></p>
+
+          <div class="tabs" role="tablist">
+            <button role="tab" id="tab-context" aria-controls="pane-context" aria-selected="true">Context</button>
+            <button role="tab" id="tab-selected" aria-controls="pane-selected" aria-selected="false">Selected</button>
+            <button role="tab" id="tab-discarded" aria-controls="pane-discarded" aria-selected="false">Discarded</button>
+          </div>
+          <div role="tabpanel" id="pane-context" aria-labelledby="tab-context">
+            <div class="pane-actions"><button type="button" id="copy" class="secondary">Copy context</button></div>
+            <pre id="context" class="context" tabindex="0"></pre>
+          </div>
+          <div role="tabpanel" id="pane-selected" aria-labelledby="tab-selected" hidden>
+            <div class="table-wrap"><table id="selectedTable"></table></div>
+          </div>
+          <div role="tabpanel" id="pane-discarded" aria-labelledby="tab-discarded" hidden>
+            <div class="table-wrap"><table id="discardedTable"></table></div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer class="foot">
+      MIT licensed · Token counts are exact for the selected OpenAI encoding and approximate for other model families.
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,104 @@
+{
+  "$comment": "Hand-written evaluation cases. Each `relevant` entry is a verbatim snippet that a useful context must contain. Written by the library author: small, biased, and meant as a regression signal, not a benchmark of general retrieval quality.",
+  "cases": [
+    {
+      "id": "jwt-clock-skew",
+      "corpus": "express-auth",
+      "query": "Why do requests fail with 401 token_expired right after login? Could it be clock skew?",
+      "maxTokens": 700,
+      "relevant": ["clockTolerance: config.clockToleranceSeconds", "if a node's clock drifts by more than the JWT", "JWT_CLOCK_TOLERANCE_SECONDS ?? 5"]
+    },
+    {
+      "id": "lowercase-bearer",
+      "corpus": "express-auth",
+      "query": "Clients that send a lowercase bearer scheme get 401 missing_bearer_token",
+      "maxTokens": 500,
+      "relevant": ["Known issue (#482)", "!header.startsWith(\"Bearer \")"]
+    },
+    {
+      "id": "refresh-rotation",
+      "corpus": "express-auth",
+      "query": "How does refresh token rotation work and are refresh tokens single use?",
+      "maxTokens": 600,
+      "relevant": ["the old one is revoked before the new pair is issued", "await sessions.revoke(session.id);"]
+    },
+    {
+      "id": "jwt-secret-rotation",
+      "corpus": "express-auth",
+      "query": "All clients started receiving 401 after we rotated JWT_SECRET",
+      "maxTokens": 500,
+      "relevant": ["Rotating `JWT_SECRET` invalidates every outstanding access token"]
+    },
+    {
+      "id": "rate-limit-impl",
+      "corpus": "express-auth",
+      "query": "How is the 429 rate limit implemented and what is the Retry-After value?",
+      "maxTokens": 400,
+      "relevant": ["const MAX_REQUESTS = 120;", "res.setHeader(\"Retry-After\""]
+    },
+    {
+      "id": "pg-timeouts",
+      "corpus": "express-auth",
+      "query": "postgres pool connection timeout and statement timeout settings",
+      "maxTokens": 400,
+      "relevant": ["connectionTimeoutMillis: 5_000", "statement_timeout: 10_000"]
+    },
+    {
+      "id": "stripe-idempotency",
+      "corpus": "express-auth",
+      "query": "Is the Stripe payment succeeded webhook handler idempotent when Stripe retries?",
+      "maxTokens": 500,
+      "relevant": ["Stripe retries webhooks for up to three days", "AND status = 'pending'"]
+    },
+    {
+      "id": "failed-payments",
+      "corpus": "saas-docs",
+      "query": "What happens when a card payment fails?",
+      "maxTokens": 300,
+      "relevant": ["we retry after 3, 5 and 7 days", "until the balance is paid"]
+    },
+    {
+      "id": "saml-signature",
+      "corpus": "saas-docs",
+      "query": "SSO login fails with saml_signature_invalid",
+      "maxTokens": 300,
+      "relevant": ["`saml_signature_invalid`: the certificate in Acme does not match"]
+    },
+    {
+      "id": "webhook-signatures",
+      "corpus": "saas-docs",
+      "query": "How should I verify webhook signatures and prevent replay attacks?",
+      "maxTokens": 300,
+      "relevant": ["HMAC-SHA256 of the raw", "Reject requests whose timestamp is more"]
+    },
+    {
+      "id": "region-change",
+      "corpus": "saas-docs",
+      "query": "Can I change my workspace region later?",
+      "maxTokens": 200,
+      "relevant": ["The region cannot be changed later."]
+    },
+    {
+      "id": "retry-backoff",
+      "corpus": "saas-docs",
+      "query": "API returns 429, how long should my client wait before retrying?",
+      "maxTokens": 250,
+      "relevant": ["Clients should retry with exponential backoff and jitter", "`Retry-After`"]
+    },
+    {
+      "id": "audit-retention",
+      "corpus": "saas-docs",
+      "query": "How long are audit logs retained?",
+      "maxTokens": 200,
+      "relevant": ["Audit logs (Enterprise only) are retained for 400 days."]
+    },
+    {
+      "id": "lexical-gap-logout",
+      "corpus": "express-auth",
+      "query": "Why are users logged out unexpectedly every few minutes?",
+      "maxTokens": 500,
+      "hard": "No query word appears in the relevant text (it says 'short-lived' and 'expires'). Lexical ranking is expected to miss this.",
+      "relevant": ["Access tokens are short-lived; clients refresh them"]
+    }
+  ]
+}

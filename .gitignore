@@ -1,0 +1,8 @@
+target/
+node_modules/
+dist/
+*.node
+packages/token-budget-optimizer/npm/
+apps/playground/public/client.js
+*.log
+.DS_Store

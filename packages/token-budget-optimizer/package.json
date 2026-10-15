@@ -1,0 +1,72 @@
+{
+  "name": "token-budget-optimizer",
+  "version": "0.1.0",
+  "description": "Send less context. Keep what matters. Deterministic, local-first selection of LLM context under a hard token budget, powered by Rust.",
+  "keywords": [
+    "llm",
+    "rag",
+    "context",
+    "tokens",
+    "token-budget",
+    "bm25",
+    "tiktoken",
+    "ai-agents",
+    "napi-rs",
+    "rust"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Truta446/token-budget-optimizer.git",
+    "directory": "packages/token-budget-optimizer"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "binding/index.cjs",
+    "binding/index.d.cts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "napi": {
+    "binaryName": "token-budget-optimizer",
+    "targets": [
+      "x86_64-unknown-linux-gnu",
+      "aarch64-unknown-linux-gnu",
+      "x86_64-unknown-linux-musl",
+      "aarch64-unknown-linux-musl",
+      "x86_64-apple-darwin",
+      "aarch64-apple-darwin",
+      "x86_64-pc-windows-msvc",
+      "aarch64-pc-windows-msvc"
+    ]
+  },
+  "scripts": {
+    "build:native": "napi build --platform --release --manifest-path native/Cargo.toml --package-json-path package.json --output-dir binding --js index.cjs --dts index.d.cts",
+    "build:native:debug": "napi build --platform --manifest-path native/Cargo.toml --package-json-path package.json --output-dir binding --js index.cjs --dts index.d.cts",
+    "build:ts": "tsc -p tsconfig.build.json",
+    "build": "pnpm run build:native && pnpm run build:ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test --test-reporter=spec tests/*.test.ts",
+    "prepublishOnly": "napi pre-publish -t npm",
+    "prepack": "node -e \"for (const f of ['README.md','LICENSE']) require('node:fs').copyFileSync('../../'+f, f)\""
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "3.10.8",
+    "@types/node": "26.6.5",
+    "js-tiktoken": "1.0.21",
+    "typescript": "7.0.2"
+  }
+}

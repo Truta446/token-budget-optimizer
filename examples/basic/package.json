@@ -1,0 +1,7 @@
+{
+  "name": "@token-budget-optimizer/example-basic",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node index.ts" },
+  "dependencies": { "token-budget-optimizer": "workspace:*" }
+}

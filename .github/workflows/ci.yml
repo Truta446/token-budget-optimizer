@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test -p optimizer-core
+
+  node:
+    name: Node ${{ matrix.node }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: pnpm install --frozen-lockfile
+      - name: Build native addon and TypeScript
+        run: pnpm --filter token-budget-optimizer build
+      - name: Typecheck
+        run: pnpm run typecheck
+      - name: Smoke test (plain JavaScript, any Node version)
+        run: node packages/token-budget-optimizer/tests/smoke.mjs
+      # The TypeScript test files use Node's built-in type stripping (verified locally on 22.22, 24.15, 26.10).
+      - name: Library tests
+        run: pnpm --filter token-budget-optimizer test
+      - name: Playground tests
+        run: pnpm --filter @token-budget-optimizer/playground test
+      - name: Examples
+        run: pnpm run examples
+      - name: Quality evaluation
+        if: matrix.node >= 24 && matrix.os == 'ubuntu-latest'
+        run: pnpm run eval
+
+  package:
+    name: npm pack dry run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter token-budget-optimizer build
+      - run: npm pack --dry-run
+        working-directory: packages/token-budget-optimizer

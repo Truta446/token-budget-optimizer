@@ -1,0 +1,20 @@
+[package]
+name = "token-budget-optimizer-node"
+description = "Node.js (NAPI-RS) bindings for optimizer-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+optimizer-core = { path = "../../../crates/optimizer-core" }
+napi = { version = "3.14.2", default-features = false, features = ["napi4"] }
+napi-derive = "3.6.12"
+
+[build-dependencies]
+napi-build = "2.6.0"
