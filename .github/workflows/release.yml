@@ -94,7 +94,9 @@ jobs:
       - name: Pack (dry run)
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run
         working-directory: packages/token-budget-optimizer
-        run: npm pack --dry-run
+        run: |
+          pnpm exec napi pre-publish -t npm --dry-run
+          npm pack --dry-run
       - name: Publish
         if: github.event_name == 'push' || !inputs.dry_run
         working-directory: packages/token-budget-optimizer
