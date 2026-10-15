@@ -35,9 +35,9 @@ const result = await optimizeContext({
   documents: files.map((f) => ({ id: f.path, content: f.text })),
 });
 
-result.context;   // "[Source: src/auth/jwt.ts, lines 25-47]\nexport function verifyAccessToken(..."
-result.stats;     // { originalTokens: 3759, optimizedTokens: 658, reductionPercent: 82.5, ... }
-result.discarded; // [{ id: "vendor/legacy-auth/jwt.ts#0", reason: "exact_duplicate", duplicateOf: "src/auth/jwt.ts#0" }, ...]
+result.context;            // "[Source: src/auth/jwt.ts, lines 25-47]\n..."
+result.stats;              // { originalTokens: 3759, optimizedTokens: 658, ... }
+result.discarded[0].reason; // "exact_duplicate" (a vendored copy of jwt.ts)
 ```
 
 ## Why
