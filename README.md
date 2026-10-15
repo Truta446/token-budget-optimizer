@@ -366,7 +366,7 @@ See [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
 | --- | --- |
 | Linux x64 (glibc), Node 24.15 | **Tested locally**: all Rust, TypeScript, playground and example tests |
 | Linux x64 (glibc), Node 22.22 and 26.10 | **Tested locally**: smoke test and library tests |
-| Linux x64/arm64, macOS arm64, Windows x64; Node 22 and 24 | CI matrix defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml); **not yet run** |
+| Linux x64/arm64, macOS arm64, Windows x64; Node 22 and 24 | **Tested in CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): build from source, typecheck, all tests, examples |
 | Linux musl, macOS x64, Windows arm64 | Release build targets defined; **untested** |
 | Browsers, Deno, Bun, edge runtimes | Not supported in 0.1 (WASM build is on the roadmap) |
 

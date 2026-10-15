@@ -27,7 +27,7 @@ changed.
 
 ## Release checklist
 
-- [ ] CI green on all matrix rows (Linux x64/arm64, macOS arm64, Windows x64; Node 22/24)
+- [x] CI green on all matrix rows (Linux x64/arm64, macOS arm64, Windows x64; Node 22/24)
 - [ ] Release workflow dry run (`workflow_dispatch`, `dry_run: true`); inspect packed files
 - [ ] `npm pack` of the main package contains `dist/`, `binding/index.cjs`, `README.md`, `LICENSE`
 - [ ] Install the published tarball in a fresh project on macOS and Windows; run `examples/basic`
