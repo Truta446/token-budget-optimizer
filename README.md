@@ -35,9 +35,9 @@ const result = await optimizeContext({
   documents: files.map((f) => ({ id: f.path, content: f.text })),
 });
 
-result.context;            // "[Source: src/auth/jwt.ts, lines 25-47]\n..."
-result.stats;              // { originalTokens: 3759, optimizedTokens: 658, ... }
-result.discarded[0].reason; // "exact_duplicate" (a vendored copy of jwt.ts)
+result.context;   // "[Source: src/auth/jwt.ts, lines 25-47]\n..."
+result.stats;     // { originalTokens: 3759, optimizedTokens: 658, ... }
+result.discarded; // every dropped chunk with a reason, e.g. "exact_duplicate"
 ```
 
 ## Why
